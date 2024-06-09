@@ -1,0 +1,10 @@
+# build directory
+/build
+
+# clangd stuff
+*.cache
+/compile_commands.json
+
+# vim stuff
+*.sw?
+

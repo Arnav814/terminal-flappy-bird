@@ -1,0 +1,49 @@
+{
+	"version": 3,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 22,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "default",
+			"displayName": "Default",
+			"description": "Default config. Should NOT be used directly.",
+			"hidden": true,
+			"cacheVariables": {
+				"CMAKE_CXX_FLAGS": "$env{CXX_WARNINGS} $env{CXX_SANITIZE} $env{CXX_OPTIMIZATION} $env{CXX_DEBUG} $env{CXX_PROFILE}"
+			}
+		},
+		{
+			"name": "dev",
+			"displayName": "Development",
+			"description": "Anything for development should eventually inherit from this.",
+			"inherits": "default",
+			"environment": {
+				"CXX_WARNINGS": "-Wall -Wextra -Winit-self -Wuninitialized -Wundef -Wshadow -Wswitch-enum",
+				"CXX_SANITIZE": "-fsanitize=address -fsanitize=undefined -fsanitize=null -fsanitize=return -fsanitize=signed-integer-overflow -fsanitize=bounds",
+				"CXX_OPTIMIZATION": "-Og"
+			}
+		},
+		{
+			"name": "gdb",
+			"displayName": "gdb",
+			"description": "For use with the GNU Debugger.",
+			"inherits": "dev",
+			"environment": {
+				"CXX_DEBUG": "-g"
+			}
+		},
+		{
+			"name": "gprof",
+			"displayName": "gprof",
+			"description": "For use with the GNU Profiler.",
+			"inherits": "dev",
+			"environment": {
+				"CXX_DEBUG": "-g",
+				"CXX_PROFILE": "-pg"
+			}
+		}
+	]
+}
