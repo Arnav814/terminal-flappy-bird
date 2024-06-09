@@ -1,55 +1,58 @@
+#include <clocale>
 #include <stdlib.h>
 #include <curses.h>
 #include <signal.h>
 
 static void finish(int sig);
 
+void drawPipe(int xPos, int height) {
+	if (height > 0) {
+		for (int i = 0; i < height; i++) {
+			mvaddch(i, xPos, '|');
+		}
+	} else if (height < 0) {
+		for (int i = LINES; i > LINES + height; i--) {
+			mvaddch(i, xPos, '|');
+		}
+	} else {
+		return;
+	}
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
-    int num = 0;
+    signal(SIGINT, finish);      // arrange interrupts to terminate
 
-    /* initialize your non-curses data structures here */
+	setlocale(LC_ALL, "");
 
-    (void) signal(SIGINT, finish);      /* arrange interrupts to terminate */
-
-    (void) initscr();      /* initialize the curses library */
-    keypad(stdscr, TRUE);  /* enable keyboard mapping */
-    (void) nonl();         /* tell curses not to do NL->CR/NL on output */
-    (void) cbreak();       /* take input chars one at a time, no wait for \n */
-    (void) echo();         /* echo input - in color */
+    initscr(); // initialize the curses library
+    cbreak(); // take input chars one at a time, no wait for \n
+	noecho(); // don't echo output
+	nodelay(stdscr, true); // don't wait for keypresses if there aren't any
 
     if (has_colors()) {
         start_color();
 
-        /*
-         * Simple color assignment, often all we need.  Color pair 0 cannot
-         * be redefined.  This example uses the same value for the color
-         * pair as for the foreground color, though of course that is not
-         * necessary:
-         */
-        init_pair(1, COLOR_RED,     COLOR_BLACK);
-        init_pair(2, COLOR_GREEN,   COLOR_BLACK);
-        init_pair(3, COLOR_YELLOW,  COLOR_BLACK);
-        init_pair(4, COLOR_BLUE,    COLOR_BLACK);
-        init_pair(5, COLOR_CYAN,    COLOR_BLACK);
-        init_pair(6, COLOR_MAGENTA, COLOR_BLACK);
-        init_pair(7, COLOR_WHITE,   COLOR_BLACK);
+        init_pair(1, COLOR_GREEN, -1);
+        init_pair(2, COLOR_YELLOW, -1);
+		#define PIPE_COLOR 1
+		#define BIRD_COLOR 2
     }
 
+	int num = 1;
     while (true) {
-        int c = getch();     /* refresh, accept single keystroke of input */
-        attrset(COLOR_PAIR(num % 8));
-        num++;
+		drawPipe(num, (num * 10) % (2 * LINES) - LINES);
 
-        /* process the command keystroke */
+		refresh();
+		sleep(1);
+
+		num++;
     }
 
-    finish(0);               /* we are done */
+    finish(0);
 }
 
 static void finish([[maybe_unused]] int sig) {
     endwin();
-
-    /* do your non-curses wrapup here */
 
     exit(0);
 }
