@@ -25,7 +25,12 @@ using namespace std;
 
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
-const array<char[BIRD_WIDTH*4 + 1], BIRD_HEIGHT> BIRD_TEXT = {"🬭🬞█", "🬊█🬄"};
+SextantDrawing BIRD_DRAWING(
+	{{0,1,1,0},
+	 {1,1,1,1},
+	 {1,1,1,1},
+	 {0,1,1,0}}
+);
 
 struct Pipe {double xPos; int height;};
 struct Bird {double yPos; double yVel;};
@@ -62,12 +67,6 @@ void drawPipe(const Pipe& pipe) {
 	mvaddstr(pipe.height - PIPE_GAP_VERT/2 - 1, pipe.xPos - floor(PIPE_WIDTH/2) - 1, "█");
 	mvaddstr(pipe.height + PIPE_GAP_VERT/2 + 1, pipe.xPos + ceil(PIPE_WIDTH/2), "█");
 	mvaddstr(pipe.height - PIPE_GAP_VERT/2 - 1, pipe.xPos + ceil(PIPE_WIDTH/2), "█");
-}
-
-void drawBird(const Bird& bird) {
-	for (int y = 0; y < BIRD_HEIGHT; y++) {
-		mvaddstr(round(bird.yPos) + y, BIRD_X_POS, BIRD_TEXT[y]);
-	}
 }
 
 static void finish(int sig);
@@ -116,7 +115,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
-		drawBird(bird);
+		BIRD_DRAWING.render(BIRD_X_POS, bird.yPos);
 
 		erase_if(pipes, [](const Pipe pipe) {return pipe.xPos < 0;});
 
