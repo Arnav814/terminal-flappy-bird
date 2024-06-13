@@ -128,8 +128,8 @@ void testAllSextants() {
 class SextantDrawing {
 	private:
 		vector<vector<unsigned char>> drawing;
-		unsigned char getWithFallback(int y, int x, unsigned char fallback) const;
-		array<array<unsigned char, 3>, 2> getChar(int topLeftX, int topLeftY) const;
+		[[nodiscard]] unsigned char getWithFallback(int y, int x, unsigned char fallback) const;
+		[[nodiscard]] array<array<unsigned char, 3>, 2> getChar(int topLeftX, int topLeftY) const;
 	
 	public:
 		SextantDrawing(const vector<vector<unsigned char>>& setDrawing) {
@@ -138,8 +138,10 @@ class SextantDrawing {
 		SextantDrawing(const int height, const int width) {
 			this->drawing = vector<vector<unsigned char>>(width, vector<unsigned char>(height, 0));
 		}
-		int getWidth() const {return this->drawing[0].size();}
-		int getHeight() const {return this->drawing.size();}
+		[[nodiscard]] int getWidth() const {return this->drawing[0].size();}
+		[[nodiscard]] int getHeight() const {return this->drawing.size();}
+		void clear();
+		void resize(int newX, int newY);
 		void insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy);
 		void render(int topLeftX, int topLeftY) const;
 		void debugPrint() const;
@@ -150,6 +152,21 @@ unsigned char SextantDrawing::getWithFallback(int y, int x, unsigned char fallba
 		return fallback;
 	else [[likely]]
 		return drawing[y][x];
+}
+
+void SextantDrawing::clear() {
+	for (int y = 0; y < this->getHeight(); y++) {
+		for (int x = 0; x < this->getWidth(); x++) {
+			this->drawing[y][x] = 0;
+		}
+	}
+}
+
+void SextantDrawing::resize(int newX, int newY) {
+	this->drawing.resize(newY);
+	for (int y = 0; y < this->getHeight(); y++) {
+		this->drawing[y].resize(newX);
+	}
 }
 
 array<array<unsigned char, 3>, 2> SextantDrawing::getChar(int topLeftX, int topLeftY) const {

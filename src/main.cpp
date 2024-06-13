@@ -26,10 +26,10 @@ using namespace std;
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
 SextantDrawing birdDrawing(
-	{{0,1,2,0},
-	 {1,1,1,1},
-	 {1,1,1,1},
-	 {0,1,1,0}}
+	{{0,2,2,0},
+	 {2,2,2,2},
+	 {2,2,2,2},
+	 {0,2,2,0}}
 );
 
 struct Pipe {double xPos; int height;};
@@ -96,6 +96,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
     while (true) {
 		erase();
+		mainDrawing.clear();
 
 		switch (getch()) {
 			case ' ':
@@ -118,6 +119,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
 		mainDrawing.insert(BIRD_X_POS, bird.yPos, birdDrawing);
+		mvaddstr(5, 15, to_string(bird.yPos).c_str());
+		mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
 		mainDrawing.render(0, 0);
 
@@ -125,11 +128,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		move(0, 0);
 		refresh();
-		this_thread::sleep_for(chrono::milliseconds(250));
+		this_thread::sleep_for(chrono::milliseconds(100));
 
 		if (bird.yPos < 0)
 			finish(0);
-		else if (bird.yPos > LINES)
+		else if (bird.yPos + birdDrawing.getHeight() > LINES * 3)
 			finish(0);
     }
 
