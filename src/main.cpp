@@ -25,8 +25,8 @@ using namespace std;
 
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
-SextantDrawing BIRD_DRAWING(
-	{{0,1,1,0},
+SextantDrawing birdDrawing(
+	{{0,1,2,0},
 	 {1,1,1,1},
 	 {1,1,1,1},
 	 {0,1,1,0}}
@@ -92,6 +92,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 	int timeSinceLastPipe = numeric_limits<int>::max();
 	Bird bird(10.0, 0.0);
 
+	SextantDrawing mainDrawing(LINES*3, COLS*3);
+
     while (true) {
 		erase();
 
@@ -115,7 +117,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
-		BIRD_DRAWING.render(BIRD_X_POS, bird.yPos);
+		mainDrawing.insert(BIRD_X_POS, bird.yPos, birdDrawing);
+
+		mainDrawing.render(0, 0);
 
 		erase_if(pipes, [](const Pipe pipe) {return pipe.xPos < 0;});
 

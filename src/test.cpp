@@ -1,56 +1,40 @@
-#include <stdlib.h>
-#include <curses.h>
-#include <signal.h>
+#include <array>
+#include <bitset>
+#include <iostream>
 
-static void finish(int sig);
+using namespace std;
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
-    int num = 0;
-
-    /* initialize your non-curses data structures here */
-
-    (void) signal(SIGINT, finish);      /* arrange interrupts to terminate */
-
-    (void) initscr();      /* initialize the curses library */
-    keypad(stdscr, TRUE);  /* enable keyboard mapping */
-    (void) nonl();         /* tell curses not to do NL->CR/NL on output */
-    (void) cbreak();       /* take input chars one at a time, no wait for \n */
-    (void) echo();         /* echo input - in color */
-
-    if (has_colors()) {
-        start_color();
-
-        /*
-         * Simple color assignment, often all we need.  Color pair 0 cannot
-         * be redefined.  This example uses the same value for the color
-         * pair as for the foreground color, though of course that is not
-         * necessary:
-         */
-        init_pair(1, COLOR_RED,     COLOR_BLACK);
-        init_pair(2, COLOR_GREEN,   COLOR_BLACK);
-        init_pair(3, COLOR_YELLOW,  COLOR_BLACK);
-        init_pair(4, COLOR_BLUE,    COLOR_BLACK);
-        init_pair(5, COLOR_CYAN,    COLOR_BLACK);
-        init_pair(6, COLOR_MAGENTA, COLOR_BLACK);
-        init_pair(7, COLOR_WHITE,   COLOR_BLACK);
-    }
-
-    while (true) {
-        int c = getch();     /* refresh, accept single keystroke of input */
-        attrset(COLOR_PAIR(num % 8));
-        num++;
-
-        /* process the command keystroke */
-    }
-
-    finish(0);               /* we are done */
+char packArray(array<array<unsigned char, 3>, 2>& myArray) {
+	return (
+		((myArray[0][0] != 0 ? 1 : 0) << 0) +
+		((myArray[0][1] != 0 ? 1 : 0) << 1) +
+		((myArray[0][2] != 0 ? 1 : 0) << 2) +
+		((myArray[1][0] != 0 ? 1 : 0) << 3) +
+		((myArray[1][1] != 0 ? 1 : 0) << 4) +
+		((myArray[1][2] != 0 ? 1 : 0) << 5)
+	);
 }
 
-static void finish([[maybe_unused]] int sig) {
-    endwin();
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
+	
+	array<array<unsigned char, 3>, 2> myArray = {{
+		{{
+			1, 1, 1
+		}},
+		{{
+			0, 0, 0
+		}}
+	}};
 
-    /* do your non-curses wrapup here */
+	bitset<6> asBitset(packArray(myArray));
+	cout << (asBitset[0] ? '#' : '_');
+	cout << (asBitset[1] ? '#' : '_');
+	cout << (asBitset[2] ? '#' : '_');
+	cout << (asBitset[3] ? '#' : '_');
+	cout << (asBitset[4] ? '#' : '_');
+	cout << (asBitset[5] ? '#' : '_');
+	cout << endl;
 
-    exit(0);
+	return 0;
 }
 

@@ -1,5 +1,7 @@
 #ifndef SEXTANTBLOCKS_CPP
 #define SEXTANTBLOCKS_CPP
+#include <cmath>
+#include <unistd.h>
 #include <vector>
 #include <codecvt>
 #include <locale>
@@ -13,13 +15,26 @@ using namespace std;
 
 char packArray(array<array<unsigned char, 3>, 2>& myArray) {
 	return (
-		(bool(myArray[0][0]) >> 0) +
-		(bool(myArray[0][1]) >> 1) +
-		(bool(myArray[0][2]) >> 2) +
-		(bool(myArray[1][0]) >> 3) +
-		(bool(myArray[1][1]) >> 4) +
-		(bool(myArray[1][2]) >> 5)
+		((myArray[1][2] != 0 ? 1 : 0) << 0) +
+		((myArray[1][1] != 0 ? 1 : 0) << 1) +
+		((myArray[1][0] != 0 ? 1 : 0) << 2) +
+		((myArray[0][2] != 0 ? 1 : 0) << 3) +
+		((myArray[0][1] != 0 ? 1 : 0) << 4) +
+		((myArray[0][0] != 0 ? 1 : 0) << 5)
 	);
+}
+
+template<typename t> void print2DVector(const vector<vector<t>>& inputVec) {
+	move(12, 10);
+	int n = 0;
+	for (const auto& x: inputVec) {
+		for (const auto& y: x) {
+			addstr(to_string(y).c_str());
+		}
+		move(12 + ++n, 10);
+	}
+	refresh();
+	sleep(5);
 }
 
 // Numbered:
@@ -95,7 +110,7 @@ unordered_map<char, wchar_t> sextantMap {
 };
 
 void testAllSextants() {
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+	wstring_convert<codecvt_utf8<wchar_t>> utf8_conv;
 	for (const auto& i: sextantMap) {
 		bitset<6> asBitset(i.first);
 		cout << (asBitset[5] ? '#' : '_');
@@ -120,6 +135,9 @@ class SextantDrawing {
 		SextantDrawing(const vector<vector<unsigned char>>& setDrawing) {
 			this->drawing = setDrawing;
 		}
+		SextantDrawing(const int height, const int width) {
+			this->drawing = vector<vector<unsigned char>>(width, vector<unsigned char>(height, 0));
+		}
 		int getWidth() const {return this->drawing[0].size();}
 		int getHeight() const {return this->drawing.size();}
 		void insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy);
@@ -137,14 +155,14 @@ unsigned char SextantDrawing::getWithFallback(int y, int x, unsigned char fallba
 array<array<unsigned char, 3>, 2> SextantDrawing::getChar(int topLeftX, int topLeftY) const {
 	return {{
 		{{
-			getWithFallback(topLeftX, topLeftY),
-			getWithFallback(topLeftX, topLeftY+1),
-			getWithFallback(topLeftX, topLeftY+1)
+			getWithFallback(topLeftY, topLeftX),
+			getWithFallback(topLeftY+1, topLeftX),
+			getWithFallback(topLeftY+2, topLeftX)
 		}},
 		{{
-			getWithFallback(topLeftX+1, topLeftY),
-			getWithFallback(topLeftX+1, topLeftY+1),
-			getWithFallback(topLeftX+1, topLeftY+2)
+			getWithFallback(topLeftY, topLeftX+1),
+			getWithFallback(topLeftY+1, topLeftX+1),
+			getWithFallback(topLeftY+2, topLeftX+1)
 		}}
 	}};
 }
@@ -161,22 +179,41 @@ void SextantDrawing::insert(int topLeftX, int topLeftY, const SextantDrawing& to
 
 // top left is specified in characters
 void SextantDrawing::render(int topLeftX, int topLeftY) const {
-	wstring_convert<codecvt_utf8<wchar_t>> utf8_conv;
-	for (int y = 0; y < this->getHeight(); y++) {
-		for (int x = 0; x < this->getWidth(); x++) {
-			auto asArray = getChar(topLeftX, topLeftY);
+	//print2DVector(this->drawing);
+	static wstring_convert<codecvt_utf8<wchar_t>> utf8_conv;
+	for (int y = 0; y < this->getHeight(); y += 3) {
+		for (int x = 0; x < this->getWidth(); x += 2) {
+			auto asArray = getChar(x, y);
 			unsigned char maxVal = 0;
 			for (auto a: asArray) {
 				for (auto b: a) {
 					maxVal = max(maxVal, b);
 				}
 			}
+			attrset(COLOR_PAIR(maxVal));
 
-			if (maxVal != 0)
-				attrset(COLOR_PAIR(maxVal));
+			if (maxVal != 0) {
+				mvaddstr(round(y/3) + topLeftY, round(x/2) + topLeftX,
+				         utf8_conv.to_bytes(sextantMap[packArray(asArray)]).c_str());
+			}
 
-			mvaddstr(y + topLeftY, x + topLeftX,
-			         utf8_conv.to_bytes(sextantMap[packArray(asArray)]).c_str());
+			/*string myString = "";
+			myString += to_string(asArray[0][0]);
+			myString += " ";
+			myString += to_string(asArray[0][1]);
+			myString += " ";
+			myString += to_string(asArray[0][2]);
+			myString += " ";
+			myString += to_string(asArray[1][0]);
+			myString += " ";
+			myString += to_string(asArray[1][1]);
+			myString += " ";
+			myString += to_string(asArray[1][2]);
+			myString += "--";
+			myString += to_string(packArray(asArray));
+			mvaddstr(20, 10, myString.c_str());
+			refresh();
+			sleep(5);*/
 		}
 	}
 }

@@ -14,3 +14,5 @@ add_executable(fly main.cpp)
 
 target_link_libraries(fly ${CURSES_LIBRARIES})
 
+add_executable(testing test.cpp)
+
