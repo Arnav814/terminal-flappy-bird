@@ -9,6 +9,7 @@
 #include <random>
 
 #include "sextantBlocks.cpp"
+#include "moreAssertions.cpp"
 
 using namespace std;
 
@@ -25,48 +26,62 @@ using namespace std;
 
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
-SextantDrawing birdDrawing(
+const SextantDrawing birdDrawing(
 	{{0,2,2,0},
 	 {2,2,2,2},
 	 {2,2,2,2},
 	 {0,2,2,0}}
 );
 
-struct Pipe {double xPos; int height;};
+struct Pipe {int xPos; int height;};
 struct Bird {double yPos; double yVel;};
+
+int logPos = 15;
 
 // both min and max are inclusive
 int randrange(int min, int max) {
-    static default_random_engine engine {std::random_device{}()};
-    std::uniform_int_distribution<int> uniform_dist(min, max);
+    //static default_random_engine engine {random_device{}()};
+    static default_random_engine engine {42}; // Makes debugging random segfaults less painful
+    uniform_int_distribution<int> uniform_dist(min, max);
 
     return uniform_dist(engine);
 }
 
-void drawPipe(const Pipe& pipe) {
-	assert(pipe.xPos >= 0 && pipe.xPos <= COLS);
-	attrset(COLOR_PAIR(PIPE_COLOR));
+void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
+	assert(pipe.xPos >= 0 && pipe.xPos <= COLS*3);
+	assertGt(pipe.height - PIPE_GAP_VERT/2, 0, "Invalid pipe height");
+	assertGt(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), 0, "Invalid pipe height");
 
-	for (int i = 0; i < pipe.height - PIPE_GAP_VERT/2; i++) {
-		assert(i >= 0 && i <= LINES);
-		for (int x = floor(-PIPE_WIDTH/2); x < ceil(PIPE_WIDTH/2); x++) {
-			mvaddstr(i, round(pipe.xPos) + x, "█");
-			//mvaddch(i, round(pipe.xPos) + x, x+65);
+	SextantDrawing topPipe(pipe.height - PIPE_GAP_VERT/2, PIPE_WIDTH+2);
+
+	for (int y = 0; y < topPipe.getHeight(); y++) {
+		assert(y >= 0 && y <= LINES*3);
+		for (int x = 1; x < topPipe.getWidth()-1; x++) {
+			topPipe.trySet(y, x, PIPE_COLOR);
 		}
 	}
 
-	for (int i = LINES; i > pipe.height + PIPE_GAP_VERT/2; i--) {
-		assert(i >= 0 && i <= LINES);
-		for (int x = floor(-PIPE_WIDTH/2); x < ceil(PIPE_WIDTH/2); x++) {
-			mvaddstr(i, round(pipe.xPos) + x, "█");
-			//mvaddch(i, round(pipe.xPos) + x, x+65);
+	topPipe.trySet(topPipe.getHeight(), 0, PIPE_COLOR);
+	topPipe.trySet(topPipe.getHeight(), topPipe.getWidth(), PIPE_COLOR);
+
+	SextantDrawing bottomPipe(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), PIPE_WIDTH+2);
+
+	for (int y = 0; y < bottomPipe.getHeight(); y++) {
+		assert(y >= 0 && y <= LINES*3);
+		for (int x = 1; x < bottomPipe.getWidth()-1; x++) {
+			bottomPipe.trySet(y, x, PIPE_COLOR);
 		}
 	}
 
-	mvaddstr(pipe.height + PIPE_GAP_VERT/2 + 1, pipe.xPos - floor(PIPE_WIDTH/2) - 1, "█");
-	mvaddstr(pipe.height - PIPE_GAP_VERT/2 - 1, pipe.xPos - floor(PIPE_WIDTH/2) - 1, "█");
-	mvaddstr(pipe.height + PIPE_GAP_VERT/2 + 1, pipe.xPos + ceil(PIPE_WIDTH/2), "█");
-	mvaddstr(pipe.height - PIPE_GAP_VERT/2 - 1, pipe.xPos + ceil(PIPE_WIDTH/2), "█");
+	bottomPipe.trySet(bottomPipe.getHeight(), 0, PIPE_COLOR);
+	bottomPipe.trySet(bottomPipe.getHeight(), bottomPipe.getWidth(), PIPE_COLOR);
+
+	mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
+	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
+
+	mainDrawing.insert(pipe.xPos - floor(PIPE_WIDTH/2), 0, topPipe);
+	//topPipe.render(round((pipe.xPos - floor(PIPE_WIDTH/2) - 1) / 3), 0);
+	mainDrawing.insert(pipe.xPos - floor(PIPE_WIDTH/2), pipe.height + PIPE_GAP_VERT/2, bottomPipe);
 }
 
 static void finish(int sig);
@@ -89,28 +104,35 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
     }
 
 	vector<Pipe> pipes;
-	int timeSinceLastPipe = numeric_limits<int>::max();
+	int timeSinceLastPipe = 0;
 	Bird bird(10.0, 0.0);
 
 	SextantDrawing mainDrawing(LINES*3, COLS*3);
 
     while (true) {
+		logPos = 15;
 		erase();
 		mainDrawing.clear();
 
-		switch (getch()) {
-			case ' ':
-				bird.yVel = -BIRD_JUMP_VELOCITY;
+		assert(mainDrawing.getHeight() == LINES * 3);
+		assert(mainDrawing.getWidth() == COLS * 3);
+
+		char nextCh;
+		while ((nextCh = getch()) != ERR) {
+			switch (nextCh) {
+				case ' ':
+					bird.yVel = -BIRD_JUMP_VELOCITY;
+			}
 		}
 
 		if (timeSinceLastPipe >= PIPE_GAP_HORIZ) {
-			pipes.push_back(Pipe(COLS, randrange(PIPE_GAP_VERT / 2, LINES - PIPE_GAP_VERT / 2)));
+			pipes.push_back(Pipe(mainDrawing.getWidth() - 1, randrange(PIPE_GAP_VERT / 2 + 1, LINES*3 - PIPE_GAP_VERT/2)));
 			timeSinceLastPipe = 0;
 		}
 		timeSinceLastPipe++;
 
 		for (Pipe& pipe: pipes) {
-			drawPipe(pipe);
+			drawPipe(mainDrawing, pipe);
 			pipe.xPos--;
 
 			//cerr << pipe.xPos << ' ' << pipe.height << endl;

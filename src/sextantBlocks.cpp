@@ -1,5 +1,6 @@
 #ifndef SEXTANTBLOCKS_CPP
 #define SEXTANTBLOCKS_CPP
+#include <cassert>
 #include <cmath>
 #include <unistd.h>
 #include <vector>
@@ -125,6 +126,17 @@ void testAllSextants() {
 	cout << flush;
 }
 
+enum class OverrideStyle {Nonzero, Always, Priority, Error};
+class OverrideException : public runtime_error {
+	public:
+		OverrideException(string error) : runtime_error(error.c_str()) {} ;
+};
+
+class RescaleException : public runtime_error {
+	public:
+		RescaleException(string error) : runtime_error(error.c_str()) {} ;
+};
+
 class SextantDrawing {
 	private:
 		vector<vector<unsigned char>> drawing;
@@ -136,18 +148,22 @@ class SextantDrawing {
 			this->drawing = setDrawing;
 		}
 		SextantDrawing(const int height, const int width) {
-			this->drawing = vector<vector<unsigned char>>(width, vector<unsigned char>(height, 0));
+			if (height == 0)
+				throw RescaleException("Cannot create a SextantDrawing with height 0");
+			this->drawing = vector<vector<unsigned char>>(height, vector<unsigned char>(width, 0));
 		}
 		[[nodiscard]] int getWidth() const {return this->drawing[0].size();}
 		[[nodiscard]] int getHeight() const {return this->drawing.size();}
 		void clear();
+		void set(int x, int y, unsigned char setTo);
+		void trySet(int y, int x, unsigned char setTo);
 		void resize(int newX, int newY);
-		void insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy);
+		void insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy, OverrideStyle overrideStyle);
 		void render(int topLeftX, int topLeftY) const;
 		void debugPrint() const;
 };
 
-unsigned char SextantDrawing::getWithFallback(int y, int x, unsigned char fallback = 0) const {
+unsigned char SextantDrawing::getWithFallback(int y, int x, unsigned char fallback) const {
 	if (y < 0 || y >= getHeight() || x < 0 || x >= getWidth())
 		return fallback;
 	else [[likely]]
@@ -162,7 +178,22 @@ void SextantDrawing::clear() {
 	}
 }
 
+void SextantDrawing::set(int x, int y, unsigned char setTo) {
+	assert((y >= 0 && (uint) y < this->drawing.size()) || !(cerr << "Expected a value in the interval [0, " << this->drawing.size() << "), got " << y << "." << endl));
+	assert((x >= 0 && (uint) x < this->drawing[y].size()) || !(cerr << "Expected a value in the interval [0, " << this->drawing[y].size() << "), got " << x << "." << endl));
+	this->drawing[y][x] = setTo;
+}
+
+void SextantDrawing::trySet(int y, int x, unsigned char setTo) {
+	if (y < 0 || y >= getHeight() || x < 0 || x >= getWidth())
+		return;
+	else [[likely]]
+		set(x, y, setTo);
+}
+
 void SextantDrawing::resize(int newX, int newY) {
+	if (newY == 0)
+		throw RescaleException("Cannot resize a SextantDrawing to height 0");
 	this->drawing.resize(newY);
 	for (int y = 0; y < this->getHeight(); y++) {
 		this->drawing[y].resize(newX);
@@ -172,24 +203,50 @@ void SextantDrawing::resize(int newX, int newY) {
 array<array<unsigned char, 3>, 2> SextantDrawing::getChar(int topLeftX, int topLeftY) const {
 	return {{
 		{{
-			getWithFallback(topLeftY, topLeftX),
-			getWithFallback(topLeftY+1, topLeftX),
-			getWithFallback(topLeftY+2, topLeftX)
+			getWithFallback(topLeftY, topLeftX, 0),
+			getWithFallback(topLeftY+1, topLeftX, 0),
+			getWithFallback(topLeftY+2, topLeftX, 0)
 		}},
 		{{
-			getWithFallback(topLeftY, topLeftX+1),
-			getWithFallback(topLeftY+1, topLeftX+1),
-			getWithFallback(topLeftY+2, topLeftX+1)
+			getWithFallback(topLeftY, topLeftX+1, 0),
+			getWithFallback(topLeftY+1, topLeftX+1, 0),
+			getWithFallback(topLeftY+2, topLeftX+1, 0)
 		}}
 	}};
 }
 
 // copies toCopy onto this drawing
 // topLeft X and Y are in drawing spaces, not characters
-void SextantDrawing::insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy) {
-	for (int y = 0; y < min(this->getHeight() + topLeftY, toCopy.getHeight()); y++) {
-		for (int x = 0; x < min(this->getWidth() + topLeftY, toCopy.getWidth()); x++) {
-			this->drawing[y+topLeftY][x+topLeftX] = toCopy.drawing[y][x];
+void SextantDrawing::insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy,
+                            const OverrideStyle overrideStyle = OverrideStyle::Priority) {
+	for (int y = 0; y < min(this->getHeight() - topLeftY, toCopy.getHeight()); y++) {
+		for (int x = 0; x < min(this->getWidth() - topLeftX, toCopy.getWidth()); x++) {
+			//if (this->getWithFallback(y+topLeftY, x+topLeftX, 0) == 0)
+			bool doSet;
+
+			switch (overrideStyle) {
+				case OverrideStyle::Always:
+					doSet = true;
+					break;
+				case OverrideStyle::Nonzero:
+					doSet = this->getWithFallback(y+topLeftY, x+topLeftX, 0) == 0;
+					break;
+				case OverrideStyle::Priority:
+					doSet = this->getWithFallback(y+topLeftY, x+topLeftX, 0) < toCopy.drawing[y][x];
+					break;
+				case OverrideStyle::Error:
+					if (this->getWithFallback(y+topLeftY, x+topLeftX, 0) != 0) {
+						throw OverrideException("Override attempted with OverrideStyle::Error set");
+					} else {
+						doSet = true;
+					}
+					break;
+				default:
+					assert(false); // makes GCC shut up
+			}
+
+			if (doSet)
+				this->set(x+topLeftX, y+topLeftY, toCopy.drawing[y][x]);
 		}
 	}
 }
