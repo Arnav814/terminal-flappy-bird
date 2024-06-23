@@ -107,7 +107,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 	int timeSinceLastPipe = 0;
 	Bird bird(10.0, 0.0);
 
-	SextantDrawing mainDrawing(LINES*3, COLS*3);
+	SextantDrawing mainDrawing(LINES*3, COLS*2);
 
     while (true) {
 		logPos = 15;
@@ -115,7 +115,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		mainDrawing.clear();
 
 		assert(mainDrawing.getHeight() == LINES * 3);
-		assert(mainDrawing.getWidth() == COLS * 3);
+		assert(mainDrawing.getWidth() == COLS * 2);
 
 		char nextCh;
 		while ((nextCh = getch()) != ERR) {
@@ -140,6 +140,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
+
+		if (bird.yPos < 0)
+			finish(0);
+		else if (bird.yPos + birdDrawing.getHeight() > LINES * 3)
+			finish(0);
+
 		mainDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing);
 		mvaddstr(5, 15, to_string(bird.yPos).c_str());
 		mvaddstr(6, 15, to_string(bird.yVel).c_str());
@@ -151,11 +157,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		move(0, 0);
 		refresh();
 		this_thread::sleep_for(chrono::milliseconds(100));
-
-		if (bird.yPos < 0)
-			finish(0);
-		else if (bird.yPos + birdDrawing.getHeight() > LINES * 3)
-			finish(0);
     }
 
     finish(0);
