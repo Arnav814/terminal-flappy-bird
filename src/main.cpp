@@ -5,9 +5,9 @@
 #include <signal.h>
 #include <thread>
 #include <vector>
-#include <limits>
 #include <random>
 
+#include "types.cpp"
 #include "sextantBlocks.cpp"
 #include "moreAssertions.cpp"
 
@@ -57,31 +57,31 @@ void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
 	for (int y = 0; y < topPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
 		for (int x = 1; x < topPipe.getWidth()-1; x++) {
-			topPipe.trySet(y, x, PIPE_COLOR);
+			topPipe.trySet(SextantCoord(y, x), PIPE_COLOR);
 		}
 	}
 
-	topPipe.trySet(topPipe.getHeight(), 0, PIPE_COLOR);
-	topPipe.trySet(topPipe.getHeight(), topPipe.getWidth(), PIPE_COLOR);
+	topPipe.trySet(SextantCoord(topPipe.getHeight(), 0), PIPE_COLOR);
+	topPipe.trySet(SextantCoord(topPipe.getHeight(), topPipe.getWidth()), PIPE_COLOR);
 
 	SextantDrawing bottomPipe(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), PIPE_WIDTH+2);
 
 	for (int y = 0; y < bottomPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
 		for (int x = 1; x < bottomPipe.getWidth()-1; x++) {
-			bottomPipe.trySet(y, x, PIPE_COLOR);
+			bottomPipe.trySet(SextantCoord(y, x), PIPE_COLOR);
 		}
 	}
 
-	bottomPipe.trySet(bottomPipe.getHeight(), 0, PIPE_COLOR);
-	bottomPipe.trySet(bottomPipe.getHeight(), bottomPipe.getWidth(), PIPE_COLOR);
+	bottomPipe.trySet(SextantCoord(bottomPipe.getHeight(), 0), PIPE_COLOR);
+	bottomPipe.trySet(SextantCoord(bottomPipe.getHeight(), bottomPipe.getWidth()), PIPE_COLOR);
 
 	mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
 	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
 
-	mainDrawing.insert(pipe.xPos - floor(PIPE_WIDTH/2), 0, topPipe);
+	mainDrawing.insert(SextantCoord(0, pipe.xPos - floor(PIPE_WIDTH/2)), topPipe);
 	//topPipe.render(round((pipe.xPos - floor(PIPE_WIDTH/2) - 1) / 3), 0);
-	mainDrawing.insert(pipe.xPos - floor(PIPE_WIDTH/2), pipe.height + PIPE_GAP_VERT/2, bottomPipe);
+	mainDrawing.insert(SextantCoord(pipe.height + PIPE_GAP_VERT/2, pipe.xPos - floor(PIPE_WIDTH/2)), bottomPipe);
 }
 
 static void finish(int sig);
@@ -140,11 +140,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
-		mainDrawing.insert(BIRD_X_POS, bird.yPos, birdDrawing);
+		mainDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing);
 		mvaddstr(5, 15, to_string(bird.yPos).c_str());
 		mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
-		mainDrawing.render(0, 0);
+		mainDrawing.render(CharCoord(0, 0));
 
 		erase_if(pipes, [](const Pipe pipe) {return pipe.xPos < 0;});
 

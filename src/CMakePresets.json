@@ -21,7 +21,7 @@
 			"description": "Anything for development should eventually inherit from this.",
 			"inherits": "default",
 			"environment": {
-				"CXX_WARNINGS": "-Wall -Wextra -Winit-self -Wuninitialized -Wundef -Wshadow -Wswitch-enum",
+				"CXX_WARNINGS": "-Wall -Wextra -Winit-self -Wuninitialized -Wundef -Wswitch-enum",
 				"CXX_SANITIZE": "-fsanitize=address -fsanitize=undefined -fsanitize=null -fsanitize=return -fsanitize=signed-integer-overflow -fsanitize=bounds",
 				"CXX_OPTIMIZATION": "-Og"
 			}

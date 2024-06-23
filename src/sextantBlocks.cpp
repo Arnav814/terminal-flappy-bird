@@ -12,6 +12,8 @@
 #include <iostream>
 #include <curses.h>
 
+#include "types.cpp"
+
 using namespace std;
 
 char packArray(array<array<unsigned char, 3>, 2>& myArray) {
@@ -140,8 +142,8 @@ class RescaleException : public runtime_error {
 class SextantDrawing {
 	private:
 		vector<vector<unsigned char>> drawing;
-		[[nodiscard]] unsigned char getWithFallback(int y, int x, unsigned char fallback) const;
-		[[nodiscard]] array<array<unsigned char, 3>, 2> getChar(int topLeftX, int topLeftY) const;
+		[[nodiscard]] unsigned char getWithFallback(const SextantCoord& coord, const unsigned char fallback) const;
+		[[nodiscard]] array<array<unsigned char, 3>, 2> getChar(const SextantCoord& topLeft) const;
 	
 	public:
 		SextantDrawing(const vector<vector<unsigned char>>& setDrawing) {
@@ -154,20 +156,27 @@ class SextantDrawing {
 		}
 		[[nodiscard]] int getWidth() const {return this->drawing[0].size();}
 		[[nodiscard]] int getHeight() const {return this->drawing.size();}
+		[[nodiscard]] unsigned char get(const SextantCoord& coord) const;
 		void clear();
-		void set(int x, int y, unsigned char setTo);
-		void trySet(int y, int x, unsigned char setTo);
-		void resize(int newX, int newY);
-		void insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy, OverrideStyle overrideStyle);
-		void render(int topLeftX, int topLeftY) const;
+		void set(const SextantCoord& coord, const unsigned char setTo);
+		void trySet(const SextantCoord& coord, const unsigned char setTo);
+		void resize(int newY, int newX);
+		void insert(const SextantCoord& topLeft, const SextantDrawing& toCopy, const OverrideStyle overrideStyle);
+		void render(const CharCoord& topLeft) const;
 		void debugPrint() const;
 };
 
-unsigned char SextantDrawing::getWithFallback(int y, int x, unsigned char fallback) const {
-	if (y < 0 || y >= getHeight() || x < 0 || x >= getWidth())
+[[nodiscard]] unsigned char SextantDrawing::get(const SextantCoord& coord) const {
+	assertBetweenHalfOpen(0, coord.y, this->getHeight(), "Height out of range in get");
+	assertBetweenHalfOpen(0, coord.x, this->getWidth(), "Width out of range in get");
+	return this->drawing[coord.y][coord.x];
+}
+
+unsigned char SextantDrawing::getWithFallback(const SextantCoord& coord, const unsigned char fallback) const {
+	if (coord.y < 0 || coord.y >= getHeight() || coord.x < 0 || coord.x >= getWidth())
 		return fallback;
 	else [[likely]]
-		return drawing[y][x];
+		return drawing[coord.y][coord.x];
 }
 
 void SextantDrawing::clear() {
@@ -178,20 +187,20 @@ void SextantDrawing::clear() {
 	}
 }
 
-void SextantDrawing::set(int x, int y, unsigned char setTo) {
-	assert((y >= 0 && (uint) y < this->drawing.size()) || !(cerr << "Expected a value in the interval [0, " << this->drawing.size() << "), got " << y << "." << endl));
-	assert((x >= 0 && (uint) x < this->drawing[y].size()) || !(cerr << "Expected a value in the interval [0, " << this->drawing[y].size() << "), got " << x << "." << endl));
-	this->drawing[y][x] = setTo;
+void SextantDrawing::set(const SextantCoord& coord, const unsigned char setTo) {
+	assertBetweenHalfOpen(0, coord.y, (int) this->drawing.size(), "Height out of range in set");
+	assertBetweenHalfOpen(0, coord.x, (int) this->drawing[coord.y].size(), "Width out of range in set");
+	this->drawing[coord.y][coord.x] = setTo;
 }
 
-void SextantDrawing::trySet(int y, int x, unsigned char setTo) {
-	if (y < 0 || y >= getHeight() || x < 0 || x >= getWidth())
+void SextantDrawing::trySet(const SextantCoord& coord, const unsigned char setTo) {
+	if (coord.y < 0 || coord.y >= getHeight() || coord.x < 0 || coord.x >= getWidth())
 		return;
 	else [[likely]]
-		set(x, y, setTo);
+		set(coord, setTo);
 }
 
-void SextantDrawing::resize(int newX, int newY) {
+void SextantDrawing::resize(int newY, int newX) {
 	if (newY == 0)
 		throw RescaleException("Cannot resize a SextantDrawing to height 0");
 	this->drawing.resize(newY);
@@ -200,64 +209,62 @@ void SextantDrawing::resize(int newX, int newY) {
 	}
 }
 
-array<array<unsigned char, 3>, 2> SextantDrawing::getChar(int topLeftX, int topLeftY) const {
+array<array<unsigned char, 3>, 2> SextantDrawing::getChar(const SextantCoord& topLeft) const {
 	return {{
 		{{
-			getWithFallback(topLeftY, topLeftX, 0),
-			getWithFallback(topLeftY+1, topLeftX, 0),
-			getWithFallback(topLeftY+2, topLeftX, 0)
+			getWithFallback(topLeft, 0),
+			getWithFallback(topLeft + SextantCoord(1, 0), 0),
+			getWithFallback(topLeft + SextantCoord(2, 0), 0)
 		}},
 		{{
-			getWithFallback(topLeftY, topLeftX+1, 0),
-			getWithFallback(topLeftY+1, topLeftX+1, 0),
-			getWithFallback(topLeftY+2, topLeftX+1, 0)
+			getWithFallback(topLeft + SextantCoord(0, 1), 0),
+			getWithFallback(topLeft + SextantCoord(1, 1), 0),
+			getWithFallback(topLeft + SextantCoord(2, 1), 0)
 		}}
 	}};
 }
 
 // copies toCopy onto this drawing
-// topLeft X and Y are in drawing spaces, not characters
-void SextantDrawing::insert(int topLeftX, int topLeftY, const SextantDrawing& toCopy,
+void SextantDrawing::insert(const SextantCoord& topLeft, const SextantDrawing& toCopy,
                             const OverrideStyle overrideStyle = OverrideStyle::Priority) {
-	for (int y = 0; y < min(this->getHeight() - topLeftY, toCopy.getHeight()); y++) {
-		for (int x = 0; x < min(this->getWidth() - topLeftX, toCopy.getWidth()); x++) {
-			//if (this->getWithFallback(y+topLeftY, x+topLeftX, 0) == 0)
-			bool doSet;
+	for (SextantCoord coord: CoordIterator(SextantCoord(0, 0),
+			SextantCoord(min(this->getHeight() - topLeft.y - 1, toCopy.getHeight() - 1),
+			             min(this->getWidth() - topLeft.x - 1, toCopy.getWidth() - 1)))) {
+		//if (this->getWithFallback(y+topLeftY, x+topLeftX, 0) == 0)
+		bool doSet;
 
-			switch (overrideStyle) {
-				case OverrideStyle::Always:
+		switch (overrideStyle) {
+			case OverrideStyle::Always:
+				doSet = true;
+				break;
+			case OverrideStyle::Nonzero:
+				doSet = this->getWithFallback(topLeft + coord, 0) == 0;
+				break;
+			case OverrideStyle::Priority:
+				doSet = this->getWithFallback(topLeft + coord, 0) < toCopy.get(coord);
+				break;
+			case OverrideStyle::Error:
+				if (this->getWithFallback(topLeft + coord, 0) != 0) {
+					throw OverrideException("Override attempted with OverrideStyle::Error set");
+				} else {
 					doSet = true;
-					break;
-				case OverrideStyle::Nonzero:
-					doSet = this->getWithFallback(y+topLeftY, x+topLeftX, 0) == 0;
-					break;
-				case OverrideStyle::Priority:
-					doSet = this->getWithFallback(y+topLeftY, x+topLeftX, 0) < toCopy.drawing[y][x];
-					break;
-				case OverrideStyle::Error:
-					if (this->getWithFallback(y+topLeftY, x+topLeftX, 0) != 0) {
-						throw OverrideException("Override attempted with OverrideStyle::Error set");
-					} else {
-						doSet = true;
-					}
-					break;
-				default:
-					assert(false); // makes GCC shut up
-			}
-
-			if (doSet)
-				this->set(x+topLeftX, y+topLeftY, toCopy.drawing[y][x]);
+				}
+				break;
+			default:
+				assert(false); // makes GCC shut up
 		}
+
+		if (doSet)
+			this->set(topLeft + coord, toCopy.get(coord));
 	}
 }
 
-// top left is specified in characters
-void SextantDrawing::render(int topLeftX, int topLeftY) const {
+void SextantDrawing::render(const CharCoord& topLeft) const {
 	//print2DVector(this->drawing);
 	static wstring_convert<codecvt_utf8<wchar_t>> utf8_conv;
 	for (int y = 0; y < this->getHeight(); y += 3) {
 		for (int x = 0; x < this->getWidth(); x += 2) {
-			auto asArray = getChar(x, y);
+			auto asArray = getChar(SextantCoord(y, x));
 			unsigned char maxVal = 0;
 			for (auto a: asArray) {
 				for (auto b: a) {
@@ -267,7 +274,7 @@ void SextantDrawing::render(int topLeftX, int topLeftY) const {
 			attrset(COLOR_PAIR(maxVal));
 
 			if (maxVal != 0) {
-				mvaddstr(round(y/3) + topLeftY, round(x/2) + topLeftX,
+				mvaddstr(round(y/3) + topLeft.y, round(x/2) + topLeft.x,
 				         utf8_conv.to_bytes(sextantMap[packArray(asArray)]).c_str());
 			}
 

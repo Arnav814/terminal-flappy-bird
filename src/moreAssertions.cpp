@@ -1,6 +1,9 @@
 #ifndef MOREASSERTIONS_CPP
 #define MOREASSERTIONS_CPP
 #include <cassert>
+#include <iostream>
+
+using namespace std;
 
 #ifndef NDEBUG
 
@@ -53,7 +56,7 @@
 	/* checks that value is between [min, max) */
 	#define assertBetweenHalfOpen(min, value, max, message) \
 		do { \
-			if (!((min) <= (target) < (max))) { \
+			if (!((min) <= (value) && (value) < (max))) { \
 				cerr << "Assertion `" #min "` (" << min << ") <= `" #value "` (" << value << ") < `" #max "` (" << max \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
 				terminate(); \
@@ -62,7 +65,7 @@
 
 	#define assertBetweenIncl(min, value, max, message) \
 		do { \
-			if (!((min) <= (target) <= (max))) { \
+			if (!((min) <= (value) && (value) <= (max))) { \
 				cerr << "Assertion `" #min "` (" << min << ") <= `" #value "` (" << value << ") <= `" #max "` (" << max \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
 				terminate(); \
