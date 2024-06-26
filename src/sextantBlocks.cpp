@@ -227,6 +227,9 @@ array<array<unsigned char, 3>, 2> SextantDrawing::getChar(const SextantCoord& to
 // copies toCopy onto this drawing
 void SextantDrawing::insert(const SextantCoord& topLeft, const SextantDrawing& toCopy,
                             const OverrideStyle overrideStyle = OverrideStyle::Priority) {
+	//cerr << topLeft.x << ' ' << topLeft.y << ';' << toCopy.getWidth() << ' ' << toCopy.getHeight() << endl;
+	assertGtEq(topLeft.x, 0, "Top left must be greater than or equal to 0");
+	assertGtEq(topLeft.y, 0, "Top left must be greater than or equal to 0");
 	for (SextantCoord coord: CoordIterator(SextantCoord(0, 0),
 			SextantCoord(min(this->getHeight() - topLeft.y - 1, toCopy.getHeight() - 1),
 			             min(this->getWidth() - topLeft.x - 1, toCopy.getWidth() - 1)))) {

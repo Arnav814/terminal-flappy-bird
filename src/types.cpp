@@ -6,6 +6,8 @@
 struct CharCoord {
 	int y; int x;
 
+	CharCoord() {}
+
 	CharCoord(const int y, const int x) {
 		this->y = y;
 		this->x = x;
@@ -13,6 +15,22 @@ struct CharCoord {
 
 	CharCoord operator+(const CharCoord& other) const {
 		return CharCoord(this->y + other.y, this->x + other.x);
+	}
+
+	CharCoord operator-(const CharCoord& other) const {
+		return CharCoord(this->y - other.y, this->x - other.x);
+	}
+
+	bool operator==(const CharCoord& other) const {
+		return this->y == other.y && this->x == other.x;
+	}
+
+	bool operator!=(const CharCoord& other) const {
+		return !(*this == other);
+	}
+
+	void print() {
+		cout << '(' << this->x << ", " << this->y << ')' << endl;
 	}
 };
 
@@ -44,6 +62,10 @@ struct SextantCoord {
 
 	SextantCoord operator+(const SextantCoord& other) const {
 		return SextantCoord(this->y + other.y, this->x + other.x);
+	}
+
+	SextantCoord operator-(const SextantCoord& other) const {
+		return SextantCoord(this->y - other.y, this->x - other.x);
 	}
 
 	bool operator==(const SextantCoord& other) const {
@@ -102,8 +124,8 @@ template <typename coordType> class CoordIterator {
 		};
 
 		CoordIterator(const coordType& start, const coordType& stop) {
-			assertLt(start.x, stop.x, "Start must be less than stop");
-			assertLt(start.x, stop.x, "Start must be less than stop");
+			assertLtEq(start.x, stop.y, "Start must be less than or equal to stop");
+			assertLtEq(start.x, stop.y, "Start must be less than or equal to stop");
 			this->start = coordType(start);
 			this->stop = coordType(stop);
 		}

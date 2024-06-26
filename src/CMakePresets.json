@@ -23,16 +23,8 @@
 			"environment": {
 				"CXX_WARNINGS": "-Wall -Wextra -Winit-self -Wuninitialized -Wundef -Wswitch-enum",
 				"CXX_SANITIZE": "-fsanitize=address -fsanitize=undefined -fsanitize=null -fsanitize=return -fsanitize=signed-integer-overflow -fsanitize=bounds",
-				"CXX_OPTIMIZATION": "-Og"
-			}
-		},
-		{
-			"name": "gdb",
-			"displayName": "gdb",
-			"description": "For use with the GNU Debugger.",
-			"inherits": "dev",
-			"environment": {
-				"CXX_DEBUG": "-g"
+				"CXX_OPTIMIZATION": "-Og",
+				"CXX_DEBUG": "-g -rdynamic"
 			}
 		},
 		{

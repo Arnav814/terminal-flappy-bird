@@ -2,8 +2,20 @@
 #define MOREASSERTIONS_CPP
 #include <cassert>
 #include <iostream>
+#include <execinfo.h>
 
 using namespace std;
+
+void printTrace() {
+	cerr << "Traceback:" << endl;
+	void* callstack[128];
+	int frames = backtrace(callstack, 128);
+	char** strs = backtrace_symbols(callstack, frames);
+	for (int i = 0; i < frames; ++i) {
+		cerr << strs[i] << endl;
+	}
+	free(strs);
+}
 
 #ifndef NDEBUG
 
@@ -13,6 +25,7 @@ using namespace std;
 			if (!(condition)) { \
 				cerr << "Assertion `" #condition "` failed in " << __FILE__ \
 					 << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -22,6 +35,7 @@ using namespace std;
 			if (!((value) > (target))) { \
 				cerr << "Assertion `" #value "` (" << value << ") greater than `" #target "` (" << target << ") failed in " \
 					 << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -31,6 +45,7 @@ using namespace std;
 			if (!((value) >= (target))) { \
 				cerr << "Assertion `" #value "` (" << value << ") greater than or equal to `" #target "` (" << target \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -40,6 +55,7 @@ using namespace std;
 			if (!((value) < (target))) { \
 				cerr << "Assertion `" #value "` (" << value << ") less than `" #target "` (" << target << ") failed in " \
 					 << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -49,6 +65,7 @@ using namespace std;
 			if (!((value) <= (target))) { \
 				cerr << "Assertion `" #value "` (" << value << ") less than or equal to `" #target "` (" << target \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -59,6 +76,7 @@ using namespace std;
 			if (!((min) <= (value) && (value) < (max))) { \
 				cerr << "Assertion `" #min "` (" << min << ") <= `" #value "` (" << value << ") < `" #max "` (" << max \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
@@ -68,6 +86,7 @@ using namespace std;
 			if (!((min) <= (value) && (value) <= (max))) { \
 				cerr << "Assertion `" #min "` (" << min << ") <= `" #value "` (" << value << ") <= `" #max "` (" << max \
 					 << ") failed in " << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
 				terminate(); \
 			} \
 		} while (false)
