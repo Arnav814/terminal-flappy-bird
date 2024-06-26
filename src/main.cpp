@@ -10,6 +10,7 @@
 #include "types.cpp"
 #include "sextantBlocks.cpp"
 #include "moreAssertions.cpp"
+#include "colors.cpp"
 
 using namespace std;
 
@@ -27,10 +28,9 @@ using namespace std;
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
 const SextantDrawing birdDrawing(
-	{{0,2,2,0},
-	 {2,2,2,2},
-	 {2,2,2,2},
-	 {0,2,2,0}}
+	{{2,0,0,2,2},
+	 {2,2,2,2,2},
+	 {0,2,2,2,0}}
 );
 
 const SextantDrawing gameOver(
@@ -115,7 +115,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
     }
 
 	vector<Pipe> pipes;
-	int timeSinceLastPipe = 0;
+	short timeSinceLastPipe = PIPE_GAP_HORIZ+1;
 	Bird bird(10.0, 0.0);
 
 	SextantDrawing mainDrawing(LINES*3, COLS*2);
