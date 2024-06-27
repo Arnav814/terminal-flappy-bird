@@ -96,6 +96,13 @@ void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
 	mainDrawing.insert(SextantCoord(pipe.height + PIPE_GAP_VERT/2, pipe.xPos - floor(PIPE_WIDTH/2)), bottomPipe);
 }
 
+void drawBg(SextantDrawing& mainDrawing) {
+	// TODO: fixme
+	for (SextantCoord coord: mainDrawing.getIterator()) {
+		mainDrawing.set(coord, -COLOR_BLUE);
+	}
+}
+
 [[noreturn]] static void finish(int sig);
 
 void displayRestartScr();
@@ -119,12 +126,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 	Bird bird(10.0, 0.0);
 
 	SextantDrawing mainDrawing(LINES*3, COLS*2);
+	SextantDrawing foregroundDrawing(LINES*3, COLS*2);
 
     while (true) {
 		//logPos = 15;
 
 		assert(mainDrawing.getHeight() == LINES * 3);
 		assert(mainDrawing.getWidth() == COLS * 2);
+		assert(foregroundDrawing.getHeight() == LINES * 3);
+		assert(foregroundDrawing.getWidth() == COLS * 2);
 
 		char nextCh;
 		while ((nextCh = getch()) != ERR) {
@@ -140,15 +150,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		erase();
 		mainDrawing.clear();
+		foregroundDrawing.clear();
+
+		drawBg(mainDrawing);
 
 		if (timeSinceLastPipe >= PIPE_GAP_HORIZ) {
-			pipes.push_back(Pipe(mainDrawing.getWidth() - 1, randrange(PIPE_GAP_VERT / 2 + 1, LINES*3 - PIPE_GAP_VERT/2)));
+			pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(PIPE_GAP_VERT / 2 + 1, LINES*3 - PIPE_GAP_VERT/2)));
 			timeSinceLastPipe = 0;
 		}
 		timeSinceLastPipe++;
 
 		for (Pipe& pipe: pipes) {
-			drawPipe(mainDrawing, pipe);
+			drawPipe(foregroundDrawing, pipe);
 			pipe.xPos--;
 
 			//cerr << pipe.xPos << ' ' << pipe.height << endl;
@@ -175,14 +188,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 			GAME_OVER;
 
 		try {
-			mainDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing, OverrideStyle::Error);
-		} catch(OverrideException const&) {
+			foregroundDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing, OverrideStyle::Error);
+		} catch(OverrideException&) {
 			GAME_OVER;
 		}
 
 		//mvaddstr(5, 15, to_string(bird.yPos).c_str());
 		//mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
+		mainDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
 		mainDrawing.render(CharCoord(0, 0));
 
 		move(0, 0);

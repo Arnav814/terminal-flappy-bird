@@ -163,6 +163,7 @@ class SextantDrawing {
 		[[nodiscard]] int getWidth() const {return this->drawing[0].size();}
 		[[nodiscard]] int getHeight() const {return this->drawing.size();}
 		[[nodiscard]] colorType get(const SextantCoord& coord) const;
+		[[nodiscard]] CoordIterator<SextantCoord> getIterator() const;
 		void clear();
 		void set(const SextantCoord& coord, const colorType setTo);
 		void trySet(const SextantCoord& coord, const colorType setTo);
@@ -204,6 +205,10 @@ void SextantDrawing::trySet(const SextantCoord& coord, const colorType setTo) {
 		return;
 	else [[likely]]
 		set(coord, setTo);
+}
+
+[[nodiscard]] CoordIterator<SextantCoord> SextantDrawing::getIterator() const {
+	return CoordIterator(SextantCoord(0, 0), SextantCoord(this->getHeight()-1, this->getWidth()-1));
 }
 
 void SextantDrawing::resize(int newY, int newX) {
