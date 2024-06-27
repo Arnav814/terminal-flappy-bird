@@ -13,17 +13,23 @@
 #include <curses.h>
 
 #include "types.cpp"
+#include "colors.cpp"
 
 using namespace std;
 
-char packArray(array<array<unsigned char, 3>, 2>& myArray) {
+typedef short colorType;
+static_assert(numeric_limits<colorType>::min() < 0, "colorType must be capable of storing negative numbers");
+
+typedef array<array<colorType, 3>, 2> charArray;
+
+char packArray(charArray& myArray) {
 	return (
-		((myArray[1][2] != 0 ? 1 : 0) << 0) +
-		((myArray[1][1] != 0 ? 1 : 0) << 1) +
-		((myArray[1][0] != 0 ? 1 : 0) << 2) +
-		((myArray[0][2] != 0 ? 1 : 0) << 3) +
-		((myArray[0][1] != 0 ? 1 : 0) << 4) +
-		((myArray[0][0] != 0 ? 1 : 0) << 5)
+		((myArray[1][2] > 0 ? 1 : 0) << 0) +
+		((myArray[1][1] > 0 ? 1 : 0) << 1) +
+		((myArray[1][0] > 0 ? 1 : 0) << 2) +
+		((myArray[0][2] > 0 ? 1 : 0) << 3) +
+		((myArray[0][1] > 0 ? 1 : 0) << 4) +
+		((myArray[0][0] > 0 ? 1 : 0) << 5)
 	);
 }
 
@@ -141,38 +147,38 @@ class RescaleException : public runtime_error {
 
 class SextantDrawing {
 	private:
-		vector<vector<unsigned char>> drawing;
-		[[nodiscard]] unsigned char getWithFallback(const SextantCoord& coord, const unsigned char fallback) const;
-		[[nodiscard]] array<array<unsigned char, 3>, 2> getChar(const SextantCoord& topLeft) const;
+		vector<vector<colorType>> drawing;
+		[[nodiscard]] colorType getWithFallback(const SextantCoord& coord, const colorType fallback) const;
+		[[nodiscard]] charArray getChar(const SextantCoord& topLeft) const;
 	
 	public:
-		SextantDrawing(const vector<vector<unsigned char>>& setDrawing) {
+		SextantDrawing(const vector<vector<colorType>>& setDrawing) {
 			this->drawing = setDrawing;
 		}
 		SextantDrawing(const int height, const int width) {
 			if (height == 0)
 				throw RescaleException("Cannot create a SextantDrawing with height 0");
-			this->drawing = vector<vector<unsigned char>>(height, vector<unsigned char>(width, 0));
+			this->drawing = vector<vector<colorType>>(height, vector<colorType>(width, 0));
 		}
 		[[nodiscard]] int getWidth() const {return this->drawing[0].size();}
 		[[nodiscard]] int getHeight() const {return this->drawing.size();}
-		[[nodiscard]] unsigned char get(const SextantCoord& coord) const;
+		[[nodiscard]] colorType get(const SextantCoord& coord) const;
 		void clear();
-		void set(const SextantCoord& coord, const unsigned char setTo);
-		void trySet(const SextantCoord& coord, const unsigned char setTo);
+		void set(const SextantCoord& coord, const colorType setTo);
+		void trySet(const SextantCoord& coord, const colorType setTo);
 		void resize(int newY, int newX);
 		void insert(const SextantCoord& topLeft, const SextantDrawing& toCopy, const OverrideStyle overrideStyle);
 		void render(const CharCoord& topLeft) const;
 		void debugPrint() const;
 };
 
-[[nodiscard]] unsigned char SextantDrawing::get(const SextantCoord& coord) const {
+[[nodiscard]] colorType SextantDrawing::get(const SextantCoord& coord) const {
 	assertBetweenHalfOpen(0, coord.y, this->getHeight(), "Height out of range in get");
 	assertBetweenHalfOpen(0, coord.x, this->getWidth(), "Width out of range in get");
 	return this->drawing[coord.y][coord.x];
 }
 
-unsigned char SextantDrawing::getWithFallback(const SextantCoord& coord, const unsigned char fallback) const {
+colorType SextantDrawing::getWithFallback(const SextantCoord& coord, const colorType fallback) const {
 	if (coord.y < 0 || coord.y >= getHeight() || coord.x < 0 || coord.x >= getWidth())
 		return fallback;
 	else [[likely]]
@@ -187,13 +193,13 @@ void SextantDrawing::clear() {
 	}
 }
 
-void SextantDrawing::set(const SextantCoord& coord, const unsigned char setTo) {
+void SextantDrawing::set(const SextantCoord& coord, const colorType setTo) {
 	assertBetweenHalfOpen(0, coord.y, (int) this->drawing.size(), "Height out of range in set");
 	assertBetweenHalfOpen(0, coord.x, (int) this->drawing[coord.y].size(), "Width out of range in set");
 	this->drawing[coord.y][coord.x] = setTo;
 }
 
-void SextantDrawing::trySet(const SextantCoord& coord, const unsigned char setTo) {
+void SextantDrawing::trySet(const SextantCoord& coord, const colorType setTo) {
 	if (coord.y < 0 || coord.y >= getHeight() || coord.x < 0 || coord.x >= getWidth())
 		return;
 	else [[likely]]
@@ -209,7 +215,7 @@ void SextantDrawing::resize(int newY, int newX) {
 	}
 }
 
-array<array<unsigned char, 3>, 2> SextantDrawing::getChar(const SextantCoord& topLeft) const {
+charArray SextantDrawing::getChar(const SextantCoord& topLeft) const {
 	return {{
 		{{
 			getWithFallback(topLeft, 0),
@@ -262,21 +268,72 @@ void SextantDrawing::insert(const SextantCoord& topLeft, const SextantDrawing& t
 	}
 }
 
+void trimColors(charArray& arrayChar) {
+	pair<colorType, colorType> fgColors = make_pair(-1, -1);
+	pair<colorType, colorType> bgColors = make_pair(1, 1);
+	for (auto a: arrayChar) {
+		for (colorType b: a) {
+			if (b >= 0) {
+				fgColors.first = max(fgColors.first, b);
+				// .second should be the second highest
+				if (b < fgColors.first)
+					fgColors.second = max(fgColors.second, b);
+			}
+			if (b <= 0) {
+				bgColors.first = max(bgColors.first, b);
+				if (b < bgColors.first)
+					bgColors.second = max(bgColors.second, b);
+			}
+		}
+	}
+
+	pair<colorType, colorType> clippedColors;
+	if (fgColors.first < 0) {
+		clippedColors = make_pair(
+			bgColors.first > 0 ? 0 : -bgColors.first,
+			bgColors.second > 0 ? -1 : -bgColors.second);
+	} else if (bgColors.first > 0) {
+		clippedColors = make_pair(
+			fgColors.first < 0 ? 0 : fgColors.first,
+			fgColors.second < 0 ? -1 : fgColors.second);
+	} else {
+		clippedColors = make_pair(
+			fgColors.first,
+			-bgColors.first);
+	}
+
+	for (unsigned int x = 0; x < arrayChar.size(); x++) {
+		for (unsigned int y = 0; y < arrayChar[x].size(); y++) {
+			if (arrayChar[x][y] == clippedColors.first) {
+				;
+			} else {
+				arrayChar[x][y] = clippedColors.second;
+			}
+		}
+	}
+}
+
 void SextantDrawing::render(const CharCoord& topLeft) const {
 	//print2DVector(this->drawing);
 	static wstring_convert<codecvt_utf8<wchar_t>> utf8_conv;
 	for (int y = 0; y < this->getHeight(); y += 3) {
 		for (int x = 0; x < this->getWidth(); x += 2) {
-			auto asArray = getChar(SextantCoord(y, x));
-			unsigned char maxVal = 0;
+			charArray asArray = getChar(SextantCoord(y, x));
+			trimColors(asArray);
+
+			colorType fgVal = 0;
+			colorType bgVal = 0;
+
 			for (auto a: asArray) {
-				for (auto b: a) {
-					maxVal = max(maxVal, b);
+				for (colorType b: a) {
+					fgVal = max(fgVal, b);
+					if (b < 0)
+						bgVal = max(bgVal, b);
 				}
 			}
-			attrset(COLOR_PAIR(maxVal));
 
-			if (maxVal != 0) {
+			if (fgVal != 0 || bgVal != 0) {
+				attrset(getColorPair(fgVal, bgVal));
 				mvaddstr(round(y/3) + topLeft.y, round(x/2) + topLeft.x,
 				         utf8_conv.to_bytes(sextantMap[packArray(asArray)]).c_str());
 			}

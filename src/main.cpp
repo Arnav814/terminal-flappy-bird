@@ -10,7 +10,6 @@
 #include "types.cpp"
 #include "sextantBlocks.cpp"
 #include "moreAssertions.cpp"
-#include "colors.cpp"
 
 using namespace std;
 
@@ -22,29 +21,34 @@ using namespace std;
 #define BIRD_X_POS round(COLS*2/4)
 #define BIRD_JUMP_VELOCITY 2.0
 
-#define PIPE_COLOR 1
-#define BIRD_COLOR 2
+#define PIPE_COLOR COLOR_GREEN
+#define BIRD_COLOR COLOR_YELLOW
 
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
-const SextantDrawing birdDrawing(
-	{{2,0,0,2,2},
-	 {2,2,2,2,2},
-	 {0,2,2,2,0}}
-);
 
-const SextantDrawing gameOver(
-	{{3,3,3,3,0,3,3,3,3,0,3,3,3,3,3,0,3,3,3,3,0,0,0,3,3,3,3,0,3,0,0,0,3,0,3,3,3,3,0,3,3,3,3},
-	 {3,0,0,0,0,3,0,0,3,0,3,0,3,0,3,0,3,0,0,0,0,0,0,3,0,0,3,0,3,0,0,0,3,0,3,0,0,0,0,3,0,0,3},
-	 {3,0,3,3,0,3,3,3,3,0,3,0,3,0,3,0,3,3,3,3,0,0,0,3,0,0,3,0,3,0,0,0,3,0,3,3,3,3,0,3,3,3,0},
-	 {3,0,0,3,0,3,0,0,3,0,3,0,0,0,3,0,3,0,0,0,0,0,0,3,0,0,3,0,0,3,0,3,0,0,3,0,0,0,0,3,0,0,3},
-	 {3,3,3,3,0,3,0,0,3,0,3,0,0,0,3,0,3,3,3,3,0,0,0,3,3,3,3,0,0,0,3,0,0,0,3,3,3,3,0,3,0,0,3}}
+#define F BIRD_COLOR
+const SextantDrawing birdDrawing(
+	{{F,0,0,F,F},
+	 {F,F,F,F,F},
+	 {0,F,F,F,0}}
 );
+#undef F
+
+#define F COLOR_RED
+const SextantDrawing gameOver(
+	{{F,F,F,F,0,F,F,F,F,0,F,F,F,F,F,0,F,F,F,F,0,0,0,F,F,F,F,0,F,0,0,0,F,0,F,F,F,F,0,F,F,F,F},
+	 {F,0,0,0,0,F,0,0,F,0,F,0,F,0,F,0,F,0,0,0,0,0,0,F,0,0,F,0,F,0,0,0,F,0,F,0,0,0,0,F,0,0,F},
+	 {F,0,F,F,0,F,F,F,F,0,F,0,F,0,F,0,F,F,F,F,0,0,0,F,0,0,F,0,F,0,0,0,F,0,F,F,F,F,0,F,F,F,0},
+	 {F,0,0,F,0,F,0,0,F,0,F,0,0,0,F,0,F,0,0,0,0,0,0,F,0,0,F,0,0,F,0,F,0,0,F,0,0,0,0,F,0,0,F},
+	 {F,F,F,F,0,F,0,0,F,0,F,0,0,0,F,0,F,F,F,F,0,0,0,F,F,F,F,0,0,0,F,0,0,0,F,F,F,F,0,F,0,0,F}}
+);
+#undef F
 
 struct Pipe {int xPos; int height;};
 struct Bird {double yPos; double yVel;};
 
-int logPos = 15;
+//int logPos = 15;
 
 // both min and max are inclusive
 int randrange(int min, int max) {
@@ -84,7 +88,7 @@ void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
 	bottomPipe.set(SextantCoord(0, 0), PIPE_COLOR);
 	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PIPE_COLOR);
 
-	mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
+	//mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
 	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
 
 	mainDrawing.insert(SextantCoord(0, pipe.xPos - floor(PIPE_WIDTH/2)), topPipe);
@@ -97,7 +101,7 @@ void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
 void displayRestartScr();
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
-    signal(SIGINT, finish);      // arrange interrupts to terminate
+    signal(SIGINT, finish); // arrange interrupts to terminate
 
 	setlocale(LC_ALL, "");
 
@@ -108,10 +112,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
     if (has_colors()) {
         start_color();
-
-        init_pair(1, COLOR_GREEN, COLOR_BLACK);
-        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(3, COLOR_RED, COLOR_BLACK);
     }
 
 	vector<Pipe> pipes;
@@ -121,7 +121,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 	SextantDrawing mainDrawing(LINES*3, COLS*2);
 
     while (true) {
-		logPos = 15;
+		//logPos = 15;
 
 		assert(mainDrawing.getHeight() == LINES * 3);
 		assert(mainDrawing.getWidth() == COLS * 2);
@@ -154,6 +154,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 			//cerr << pipe.xPos << ' ' << pipe.height << endl;
 		}
 
+		// delete offscreen pipes
 		erase_if(pipes, [](const Pipe pipe) {return pipe.xPos <= floor(PIPE_WIDTH/2);});
 
 		bird.yVel += GRAVITY;
@@ -179,8 +180,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 			GAME_OVER;
 		}
 
-		mvaddstr(5, 15, to_string(bird.yPos).c_str());
-		mvaddstr(6, 15, to_string(bird.yVel).c_str());
+		//mvaddstr(5, 15, to_string(bird.yPos).c_str());
+		//mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
 		mainDrawing.render(CharCoord(0, 0));
 

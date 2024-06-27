@@ -3,6 +3,8 @@
 
 #include <unordered_map>
 #include <utility>
+#include <limits>
+#include <exception>
 #include <ncursesw/curses.h>
 
 #include "moreAssertions.cpp"
@@ -16,14 +18,17 @@ template <> struct std::hash<pair<unsigned char, unsigned char>> {
 };
 
 namespace ColorCache {
-	size_t next = 0;
-	unordered_map<pair<unsigned char, unsigned char>, size_t> storedColors;
+	short next = 0;
+	unordered_map<pair<unsigned char, unsigned char>, short> storedColors;
 };
 
-int getPair(unsigned char fg, unsigned char bg) {
+int getColorPair(unsigned char fg, unsigned char bg) {
 	auto tryFind = ColorCache::storedColors.find(make_pair(fg, bg));
 	if (tryFind == ColorCache::storedColors.end()) {
+		if (ColorCache::next == numeric_limits<decltype(ColorCache::next)>::max())
+			throw runtime_error("Reached maximium number of color_pairs.");
 		ColorCache::next++;
+		init_pair(ColorCache::next, fg, bg);
 		ColorCache::storedColors.insert(make_pair(make_pair(fg, bg), ColorCache::next));
 		return COLOR_PAIR(ColorCache::next);
 	} else [[likely]] {
