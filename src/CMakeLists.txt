@@ -14,5 +14,8 @@ add_executable(fly main.cpp)
 
 target_link_libraries(fly ${CURSES_LIBRARIES})
 
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/run.sh
+     	DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 add_executable(testing test.cpp)
 
