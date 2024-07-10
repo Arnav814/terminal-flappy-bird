@@ -4,12 +4,15 @@
 #include <unordered_map>
 #include <utility>
 #include <limits>
-#include <exception>
 #include <ncursesw/curses.h>
 
 #include "moreAssertions.cpp"
 
 using namespace std;
+
+// this file is just jank to work around ncurses color pairs.
+// we can only use color pairs, so if we want to set fg and bg colors individually, 
+// we need to dynamically create more color pairs
 
 template <> struct std::hash<pair<unsigned char, unsigned char>> {
 	size_t operator()(const pair<unsigned char, unsigned char> chPair) const {

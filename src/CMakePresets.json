@@ -28,6 +28,16 @@
 			}
 		},
 		{
+			"name": "gdb",
+			"displayName": "GNU Debugger Mode",
+			"description": "For use with gdb.",
+			"inherits": "dev",
+			"environment": {
+				"CXX_SANITIZE": "-fsanitize=undefined",
+				"CXX_DEBUG": "-ggdb"
+			}
+		},
+		{
 			"name": "gprof",
 			"displayName": "gprof",
 			"description": "For use with the GNU Profiler.",

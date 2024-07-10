@@ -30,6 +30,16 @@ void printTrace() {
 			} \
 		} while (false)
 
+	#define assertEq(value, target, message) \
+		do { \
+			if (!((value) == (target))) { \
+				cerr << "Assertion `" #value "` (" << value << ") equal to `" #target "` (" << target << ") failed in " \
+					 << __FILE__ << " line " << __LINE__ << ": " << message << endl; \
+				printTrace(); \
+				terminate(); \
+			} \
+		} while (false)
+
 	#define assertGt(value, target, message) \
 		do { \
 			if (!((value) > (target))) { \
@@ -94,6 +104,7 @@ void printTrace() {
 #else
 
 	#define assertMessage(condition, message) do { } while (false)
+	#define assertEq(value, target, message) do { } while (false)
 	#define assertGt(value, target, message) do { } while (false)
 	#define assertGtEq(value, target, message) do { } while (false)
 	#define assertLt(value, target, message) do { } while (false)

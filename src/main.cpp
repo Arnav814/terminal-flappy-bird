@@ -21,29 +21,33 @@ using namespace std;
 #define BIRD_X_POS round(COLS*2/4)
 #define BIRD_JUMP_VELOCITY 2.0
 
-#define PIPE_COLOR COLOR_GREEN
+#define PIPE_FILL PriorityColor(COLOR_GREEN, 100)
 #define BIRD_COLOR COLOR_YELLOW
 
 #define BIRD_HEIGHT 2
 #define BIRD_WIDTH 3
 
-#define F BIRD_COLOR
+#define F PriorityColor(BIRD_COLOR, 101)
+#define O PriorityColor(COLOR_BLACK, 0)
 const SextantDrawing birdDrawing(
-	{{F,0,0,F,F},
+	{{F,O,O,F,F},
 	 {F,F,F,F,F},
-	 {0,F,F,F,0}}
+	 {O,F,F,F,O}}
 );
 #undef F
+#undef O
 
-#define F COLOR_RED
+#define F PriorityColor(COLOR_RED, 250)
+#define O PriorityColor(COLOR_BLACK, 249)
 const SextantDrawing gameOver(
-	{{F,F,F,F,0,F,F,F,F,0,F,F,F,F,F,0,F,F,F,F,0,0,0,F,F,F,F,0,F,0,0,0,F,0,F,F,F,F,0,F,F,F,F},
-	 {F,0,0,0,0,F,0,0,F,0,F,0,F,0,F,0,F,0,0,0,0,0,0,F,0,0,F,0,F,0,0,0,F,0,F,0,0,0,0,F,0,0,F},
-	 {F,0,F,F,0,F,F,F,F,0,F,0,F,0,F,0,F,F,F,F,0,0,0,F,0,0,F,0,F,0,0,0,F,0,F,F,F,F,0,F,F,F,0},
-	 {F,0,0,F,0,F,0,0,F,0,F,0,0,0,F,0,F,0,0,0,0,0,0,F,0,0,F,0,0,F,0,F,0,0,F,0,0,0,0,F,0,0,F},
-	 {F,F,F,F,0,F,0,0,F,0,F,0,0,0,F,0,F,F,F,F,0,0,0,F,F,F,F,0,0,0,F,0,0,0,F,F,F,F,0,F,0,0,F}}
+	{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
+	 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
+	 {F,O,F,F,O,F,F,F,F,O,F,O,F,O,F,O,F,F,F,F,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,O},
+	 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
+	 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F}}
 );
 #undef F
+#undef O
 
 struct Pipe {int xPos; int height;};
 struct Bird {double yPos; double yVel;};
@@ -59,7 +63,7 @@ int randrange(int min, int max) {
     return uniform_dist(engine);
 }
 
-void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
+void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	assert(pipe.xPos >= 0 && pipe.xPos <= COLS*2);
 	assertGt(pipe.height - PIPE_GAP_VERT/2, 0, "Invalid pipe height");
 	assertGt(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), 0, "Invalid pipe height");
@@ -69,42 +73,41 @@ void drawPipe(SextantDrawing& mainDrawing, const Pipe& pipe) {
 	for (int y = 0; y < topPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
 		for (int x = 1; x < topPipe.getWidth()-1; x++) {
-			topPipe.set(SextantCoord(y, x), PIPE_COLOR);
+			topPipe.set(SextantCoord(y, x), PIPE_FILL);
 		}
 	}
 
-	topPipe.set(SextantCoord(topPipe.getHeight()-1, 0), PIPE_COLOR);
-	topPipe.set(SextantCoord(topPipe.getHeight()-1, topPipe.getWidth()-1), PIPE_COLOR);
+	// add the rims to the pipes
+	topPipe.set(SextantCoord(topPipe.getHeight()-1, 0), PIPE_FILL);
+	topPipe.set(SextantCoord(topPipe.getHeight()-1, topPipe.getWidth()-1), PIPE_FILL);
 
 	SextantDrawing bottomPipe(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), PIPE_WIDTH+2);
 
 	for (int y = 0; y < bottomPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
 		for (int x = 1; x < bottomPipe.getWidth()-1; x++) {
-			bottomPipe.set(SextantCoord(y, x), PIPE_COLOR);
+			bottomPipe.set(SextantCoord(y, x), PIPE_FILL);
 		}
 	}
 
-	bottomPipe.set(SextantCoord(0, 0), PIPE_COLOR);
-	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PIPE_COLOR);
+	bottomPipe.set(SextantCoord(0, 0), PIPE_FILL);
+	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PIPE_FILL);
 
 	//mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
 	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
 
-	mainDrawing.insert(SextantCoord(0, pipe.xPos - floor(PIPE_WIDTH/2)), topPipe);
+	drawing.insert(SextantCoord(0, pipe.xPos - floor(PIPE_WIDTH/2)), topPipe);
 	//topPipe.render(round((pipe.xPos - floor(PIPE_WIDTH/2) - 1) / 3), 0);
-	mainDrawing.insert(SextantCoord(pipe.height + PIPE_GAP_VERT/2, pipe.xPos - floor(PIPE_WIDTH/2)), bottomPipe);
+	drawing.insert(SextantCoord(pipe.height + PIPE_GAP_VERT/2, pipe.xPos - floor(PIPE_WIDTH/2)), bottomPipe);
 }
 
-void drawBg(SextantDrawing& mainDrawing) {
-	// TODO: fixme
-	for (SextantCoord coord: mainDrawing.getIterator()) {
-		mainDrawing.set(coord, -COLOR_BLUE);
+void drawBg(SextantDrawing& drawing) {
+	for (SextantCoord coord: drawing.getIterator()) {
+		drawing.set(coord, PriorityColor(COLOR_BLUE, 1));
 	}
 }
 
 [[noreturn]] static void finish(int sig);
-
 void displayRestartScr();
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
@@ -131,10 +134,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
     while (true) {
 		//logPos = 15;
 
-		assert(mainDrawing.getHeight() == LINES * 3);
-		assert(mainDrawing.getWidth() == COLS * 2);
-		assert(foregroundDrawing.getHeight() == LINES * 3);
-		assert(foregroundDrawing.getWidth() == COLS * 2);
+		assertEq(mainDrawing.getHeight(), LINES * 3, "Main drawing sized incorrectly for terminal.");
+		assertEq(mainDrawing.getWidth(), COLS * 2, "Main drawing sized incorrectly for terminal.");
+		assertEq(foregroundDrawing.getHeight(), LINES * 3, "Foreground drawing sized incorrectly for terminal.");
+		assertEq(foregroundDrawing.getWidth(), COLS * 2, "Foreground drawing sized incorrectly for terminal.");
 
 		char nextCh;
 		while ((nextCh = getch()) != ERR) {
@@ -197,6 +200,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		//mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
 		mainDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
+
+		/*for (SextantCoord coord: mainDrawing.getIterator()) {
+			if (mainDrawing.get(coord).priority <= 0) {
+				mainDrawing.set(coord, PriorityColor(COLOR_RED, 255));
+				//cerr << "BAD: " << to_string(coord.x) << ' ' << to_string(coord.y) << endl;
+			}
+		}*/
+
 		mainDrawing.render(CharCoord(0, 0));
 
 		move(0, 0);
