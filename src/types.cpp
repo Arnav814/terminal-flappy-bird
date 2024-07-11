@@ -21,6 +21,14 @@ struct CharCoord {
 		return CharCoord(this->y - other.y, this->x - other.x);
 	}
 
+	CharCoord operator*(const int other) const {
+		return CharCoord(this->y * other, this->x * other);
+	}
+
+	CharCoord operator/(const int other) const {
+		return CharCoord(this->y / other, this->x / other);
+	}
+
 	bool operator==(const CharCoord& other) const {
 		return this->y == other.y && this->x == other.x;
 	}
@@ -66,6 +74,14 @@ struct SextantCoord {
 
 	SextantCoord operator-(const SextantCoord& other) const {
 		return SextantCoord(this->y - other.y, this->x - other.x);
+	}
+
+	SextantCoord operator*(const int other) const {
+		return SextantCoord(this->y * other, this->x * other);
+	}
+
+	SextantCoord operator/(const int other) const {
+		return SextantCoord(this->y / other, this->x / other);
 	}
 
 	bool operator==(const SextantCoord& other) const {
@@ -123,9 +139,10 @@ template <typename coordType> class CoordIterator {
 				}
 		};
 
+		// both start and end are inclusive
 		CoordIterator(const coordType& start, const coordType& stop) {
-			assertLtEq(start.x, stop.y, "Start must be less than or equal to stop");
-			assertLtEq(start.x, stop.y, "Start must be less than or equal to stop");
+			assertLtEq(start.x, stop.x, "Start must be less than or equal to stop");
+			assertLtEq(start.y, stop.y, "Start must be less than or equal to stop");
 			this->start = coordType(start);
 			this->stop = coordType(stop);
 		}

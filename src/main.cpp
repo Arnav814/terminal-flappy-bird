@@ -8,6 +8,7 @@
 #include <random>
 
 #include "types.cpp"
+#include "colors.cpp"
 #include "sextantBlocks.cpp"
 #include "moreAssertions.cpp"
 
@@ -40,11 +41,12 @@ const SextantDrawing birdDrawing(
 #define F PriorityColor(COLOR_RED, 250)
 #define O PriorityColor(COLOR_BLACK, 249)
 const SextantDrawing gameOver(
-	{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
-	 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
-	 {F,O,F,F,O,F,F,F,F,O,F,O,F,O,F,O,F,F,F,F,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,O},
-	 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
-	 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F}}
+	{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
+	 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
+	 {F,O,F,F,O,F,F,F,F,O,F,O,F,O,F,O,F,F,F,F,O,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,O},
+	 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
+	 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F},
+	 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
 );
 #undef F
 #undef O
@@ -108,9 +110,16 @@ void drawBg(SextantDrawing& drawing) {
 }
 
 [[noreturn]] static void finish(int sig);
-void displayRestartScr();
+void displayRestartScr(SextantDrawing& drawing);
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
+
+	#ifndef NDEBUG
+	// Because I'm too lazy to setup proper tests.
+	assertEq(gameOver.getWidth() % 2, 0, "Game over size must be a round number of chars.");
+	assertEq(gameOver.getHeight() % 3, 0, "Game over size must be a round number of chars.");
+	#endif
+
     signal(SIGINT, finish); // arrange interrupts to terminate
 
 	setlocale(LC_ALL, "");
@@ -130,6 +139,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 	SextantDrawing mainDrawing(LINES*3, COLS*2);
 	SextantDrawing foregroundDrawing(LINES*3, COLS*2);
+
+	bool isGameOver = false;
 
     while (true) {
 		//logPos = 15;
@@ -176,24 +187,17 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		bird.yVel += GRAVITY;
 		bird.yPos += bird.yVel;
 
-		#define GAME_OVER do { \
-				beep(); \
-				displayRestartScr(); \
-				bird.yPos = 10.0; \
-				bird.yVel = 0.0; \
-				pipes.clear(); \
-				timeSinceLastPipe = 0; \
-			} while (false)
-
 		if (bird.yPos < 0)
-			GAME_OVER;
+			isGameOver = true;
 		else if (bird.yPos + birdDrawing.getHeight() > LINES * 3)
-			GAME_OVER;
+			isGameOver = true;
 
-		try {
-			foregroundDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing, OverrideStyle::Error);
-		} catch(OverrideException&) {
-			GAME_OVER;
+		if (!isGameOver) {
+			try {
+				foregroundDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing, OverrideStyle::Error);
+			} catch(OverrideException&) {
+				isGameOver = true;
+			}
 		}
 
 		//mvaddstr(5, 15, to_string(bird.yPos).c_str());
@@ -201,12 +205,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		mainDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
 
-		/*for (SextantCoord coord: mainDrawing.getIterator()) {
-			if (mainDrawing.get(coord).priority <= 0) {
-				mainDrawing.set(coord, PriorityColor(COLOR_RED, 255));
-				//cerr << "BAD: " << to_string(coord.x) << ' ' << to_string(coord.y) << endl;
-			}
-		}*/
+		if (isGameOver) {
+				beep();
+				displayRestartScr(mainDrawing);
+				bird.yPos = 10.0;
+				bird.yVel = 0.0;
+				pipes.clear();
+				timeSinceLastPipe = PIPE_GAP_HORIZ+1;
+				isGameOver = false;
+		}
 
 		mainDrawing.render(CharCoord(0, 0));
 
@@ -218,18 +225,40 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
     finish(0);
 }
 
-void displayRestartScr() {
+// After writing this, I've concluded that layout managers are magic.
+void displayRestartScr(SextantDrawing& drawing) {
+	#define PADDING 1
 	CharCoord center = CharCoord(LINES/2, COLS/2);
-	CharCoord topLeft =     center + CharCoord(-floor(gameOver.getHeight()/6)  , -floor(gameOver.getWidth()/4));
-	//CharCoord topRight =    center + CharCoord(-floor(gameOver.getHeight()/6)  ,  floor(gameOver.getWidth()/4));
-	CharCoord bottomLeft =  center + CharCoord(  ceil(gameOver.getHeight()/6)+2, - ceil(gameOver.getWidth()/4));
-	CharCoord bottomRight = center + CharCoord(  ceil(gameOver.getHeight()/6)+2,   ceil(gameOver.getWidth()/4));
 
-	gameOver.render(topLeft);
-	mvaddstr(bottomLeft.y, bottomLeft.x, "CONTINUE?");
+	unsigned int height = gameOver.getHeight() / 3 + 3*PADDING;
+
+	CharCoord topLeft = center - CharCoord(ceil((double) height / 2),
+		ceil((double) gameOver.getWidth() / 4) + PADDING);
+	CharCoord bottomRight = center + CharCoord(floor((double) height / 2),
+		floor((double) gameOver.getWidth() / 4) + PADDING - 1 /* inexplicable -1 that makes it work */);
+
+	// draw an outline
+	for (SextantCoord coord: CoordIterator(SextantCoord(topLeft), SextantCoord(bottomRight) + SextantCoord(2, 1))) {
+		drawing.set(coord, PriorityColor(COLOR_RED, 250));
+	}
+
+	// fill in black
+	for (SextantCoord coord: CoordIterator(SextantCoord(topLeft) + SextantCoord(1, 1),
+			SextantCoord(bottomRight) + SextantCoord(1, 0))) {
+		drawing.set(coord, PriorityColor(COLOR_BLACK, 249));
+	}
+
+	drawing.insert(topLeft + CharCoord(PADDING, PADDING), gameOver);
+	drawing.render(CharCoord(0, 0));
+
+	attrset(getColorPair(COLOR_RED, COLOR_BLACK));
+	mvaddstr(bottomRight.y - PADDING, topLeft.x + PADDING, "CONTINUE?");
 	string right = "QUIT?";
-	mvaddstr(bottomRight.y, bottomRight.x - right.length() + 1, right.c_str());
-	//mvaddch(LINES/2, COLS/2, 'O');
+	mvaddstr(bottomRight.y - PADDING,
+		bottomRight.x - PADDING - right.length() + 1 /* inexplicable +1 */, right.c_str());
+	mvaddch(center.y, center.x, 'O');
+	#undef PADDING
+
 	refresh();
 	nodelay(stdscr, false);
 	char c;
@@ -237,7 +266,7 @@ void displayRestartScr() {
 		c = getch();
 		if (c == 'c' || c == 'C') {
 			break;
-		} else if (c == 'q' || 'Q') {
+		} else if (c == 'q' || c == 'Q') {
 			finish(0);
 		}
 	}
