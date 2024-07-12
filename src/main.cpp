@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <clocale>
 #include <stdlib.h>
 #include <curses.h>
@@ -14,19 +15,24 @@
 
 using namespace std;
 
-#define PIPE_GAP_VERT 24
-#define PIPE_WIDTH 6
-#define PIPE_GAP_HORIZ 80
+// For things like jump height, etc, etc
+namespace RuntimeConstants {
+	uint pipeGapVert;
+	uint pipeWidth;
+	uint pipeGapHoriz;
+	uint birdXPos;
 
-#define GRAVITY 0.25
-#define BIRD_X_POS round(COLS*2/4)
-#define BIRD_JUMP_VELOCITY 2.0
+	chrono::milliseconds frameDelay;
+	uint pipeProcessFrames;
+	// pipes will be processed every n frames
+	// essentially makes the bird update more frequently than the pipes
+
+	double gravity;
+	double birdJumpVelocity;
+};
 
 #define PIPE_FILL PriorityColor(COLOR_GREEN, 100)
 #define BIRD_COLOR COLOR_YELLOW
-
-#define BIRD_HEIGHT 2
-#define BIRD_WIDTH 3
 
 #define F PriorityColor(BIRD_COLOR, 101)
 #define O PriorityColor(COLOR_BLACK, 0)
@@ -67,10 +73,10 @@ int randrange(int min, int max) {
 
 void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	assert(pipe.xPos >= 0 && pipe.xPos <= COLS*2);
-	assertGt(pipe.height - PIPE_GAP_VERT/2, 0, "Invalid pipe height");
-	assertGt(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), 0, "Invalid pipe height");
+	assertGt(pipe.height - RuntimeConstants::pipeGapVert/2, 0, "Invalid pipe height");
+	assertGt(LINES*3 - (pipe.height + RuntimeConstants::pipeGapVert/2), 0, "Invalid pipe height");
 
-	SextantDrawing topPipe(pipe.height - PIPE_GAP_VERT/2, PIPE_WIDTH+2);
+	SextantDrawing topPipe(pipe.height - RuntimeConstants::pipeGapVert/2, RuntimeConstants::pipeWidth+2);
 
 	for (int y = 0; y < topPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
@@ -83,7 +89,7 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	topPipe.set(SextantCoord(topPipe.getHeight()-1, 0), PIPE_FILL);
 	topPipe.set(SextantCoord(topPipe.getHeight()-1, topPipe.getWidth()-1), PIPE_FILL);
 
-	SextantDrawing bottomPipe(LINES*3 - (pipe.height + PIPE_GAP_VERT/2), PIPE_WIDTH+2);
+	SextantDrawing bottomPipe(LINES*3 - (pipe.height + RuntimeConstants::pipeGapVert/2), RuntimeConstants::pipeWidth+2);
 
 	for (int y = 0; y < bottomPipe.getHeight(); y++) {
 		assert(y >= 0 && y <= LINES*3);
@@ -98,15 +104,31 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	//mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
 	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
 
-	drawing.insert(SextantCoord(0, pipe.xPos - floor(PIPE_WIDTH/2)), topPipe);
-	//topPipe.render(round((pipe.xPos - floor(PIPE_WIDTH/2) - 1) / 3), 0);
-	drawing.insert(SextantCoord(pipe.height + PIPE_GAP_VERT/2, pipe.xPos - floor(PIPE_WIDTH/2)), bottomPipe);
+	drawing.insert(SextantCoord(0, pipe.xPos - floor(RuntimeConstants::pipeWidth/2)), topPipe);
+	//topPipe.render(round((pipe.xPos - floor(RuntimeConstants::pipeWidth/2) - 1) / 3), 0);
+	drawing.insert(SextantCoord(pipe.height + RuntimeConstants::pipeGapVert/2, pipe.xPos - floor(RuntimeConstants::pipeWidth/2)), bottomPipe);
 }
 
 void drawBg(SextantDrawing& drawing) {
 	for (SextantCoord coord: drawing.getIterator()) {
 		drawing.set(coord, PriorityColor(COLOR_BLUE, 1));
 	}
+}
+
+// Try to find sane values based on screen size if they aren't specified.
+void guessConstants() {
+	using namespace RuntimeConstants;
+
+	pipeGapVert = birdDrawing.getHeight() * 8;
+	pipeWidth = 6;
+	pipeGapHoriz = round((double) COLS / 2);
+
+	frameDelay = chrono::milliseconds(50);
+	pipeProcessFrames = 2;
+
+	gravity = 0.1;
+	birdXPos = round((double) COLS * 2 / 4);
+	birdJumpVelocity = gravity * 20;
 }
 
 [[noreturn]] static void finish(int sig);
@@ -133,8 +155,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
         start_color();
     }
 
+	guessConstants();
+
 	vector<Pipe> pipes;
-	short timeSinceLastPipe = PIPE_GAP_HORIZ+1;
+	uint timeSinceLastPipe = RuntimeConstants::pipeGapHoriz + 1;
+	uint timeSincePipesProcessed = RuntimeConstants::pipeProcessFrames + 1;
 	Bird bird(10.0, 0.0);
 
 	SextantDrawing mainDrawing(LINES*3, COLS*2);
@@ -145,6 +170,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
     while (true) {
 		//logPos = 15;
 
+		// TODO: better resize handling than crashing
 		assertEq(mainDrawing.getHeight(), LINES * 3, "Main drawing sized incorrectly for terminal.");
 		assertEq(mainDrawing.getWidth(), COLS * 2, "Main drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getHeight(), LINES * 3, "Foreground drawing sized incorrectly for terminal.");
@@ -154,7 +180,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 		while ((nextCh = getch()) != ERR) {
 			switch (nextCh) {
 				case ' ':
-					bird.yVel = -BIRD_JUMP_VELOCITY;
+					bird.yVel = -RuntimeConstants::birdJumpVelocity;
 					break;
 				case 'p':
 					sleep(10);
@@ -168,23 +194,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		drawBg(mainDrawing);
 
-		if (timeSinceLastPipe >= PIPE_GAP_HORIZ) {
-			pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(PIPE_GAP_VERT / 2 + 1, LINES*3 - PIPE_GAP_VERT/2)));
-			timeSinceLastPipe = 0;
-		}
-		timeSinceLastPipe++;
-
 		for (Pipe& pipe: pipes) {
 			drawPipe(foregroundDrawing, pipe);
-			pipe.xPos--;
-
-			//cerr << pipe.xPos << ' ' << pipe.height << endl;
 		}
 
-		// delete offscreen pipes
-		erase_if(pipes, [](const Pipe pipe) {return pipe.xPos <= floor(PIPE_WIDTH/2);});
+		if (timeSincePipesProcessed >= RuntimeConstants::pipeProcessFrames) {
+			if (timeSinceLastPipe >= RuntimeConstants::pipeGapHoriz) {
+				pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(RuntimeConstants::pipeGapVert / 2 + 1, LINES*3 - RuntimeConstants::pipeGapVert/2)));
+				timeSinceLastPipe = 0;
+			}
+			timeSinceLastPipe++;
 
-		bird.yVel += GRAVITY;
+			for (Pipe& pipe: pipes) {
+				pipe.xPos--;
+			}
+
+			// delete offscreen pipes
+			erase_if(pipes, [](const Pipe pipe) {return pipe.xPos <= floor(RuntimeConstants::pipeWidth/2);});
+
+			timeSincePipesProcessed = 0;
+		}
+		timeSincePipesProcessed++;
+
+		bird.yVel += RuntimeConstants::gravity;
 		bird.yPos += bird.yVel;
 
 		if (bird.yPos < 0)
@@ -194,7 +226,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		if (!isGameOver) {
 			try {
-				foregroundDrawing.insert(SextantCoord(bird.yPos, BIRD_X_POS), birdDrawing, OverrideStyle::Error);
+				foregroundDrawing.insert(SextantCoord(bird.yPos, RuntimeConstants::birdXPos), birdDrawing, OverrideStyle::Error);
 			} catch(OverrideException&) {
 				isGameOver = true;
 			}
@@ -211,7 +243,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 				bird.yPos = 10.0;
 				bird.yVel = 0.0;
 				pipes.clear();
-				timeSinceLastPipe = PIPE_GAP_HORIZ+1;
+				timeSinceLastPipe = RuntimeConstants::pipeGapHoriz+1;
 				isGameOver = false;
 		}
 
@@ -219,7 +251,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		move(0, 0);
 		refresh();
-		this_thread::sleep_for(chrono::milliseconds(100));
+		this_thread::sleep_for(chrono::milliseconds(20));
     }
 
     finish(0);
@@ -230,7 +262,7 @@ void displayRestartScr(SextantDrawing& drawing) {
 	#define PADDING 1
 	CharCoord center = CharCoord(LINES/2, COLS/2);
 
-	unsigned int height = gameOver.getHeight() / 3 + 3*PADDING;
+	uint height = gameOver.getHeight() / 3 + 3*PADDING;
 
 	CharCoord topLeft = center - CharCoord(ceil((double) height / 2),
 		ceil((double) gameOver.getWidth() / 4) + PADDING);
@@ -256,7 +288,8 @@ void displayRestartScr(SextantDrawing& drawing) {
 	string right = "QUIT?";
 	mvaddstr(bottomRight.y - PADDING,
 		bottomRight.x - PADDING - right.length() + 1 /* inexplicable +1 */, right.c_str());
-	mvaddch(center.y, center.x, 'O');
+	//mvaddch(center.y, center.x, 'O');
+	move(0, 0);
 	#undef PADDING
 
 	refresh();

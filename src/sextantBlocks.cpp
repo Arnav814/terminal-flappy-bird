@@ -311,6 +311,11 @@ pair<colorType, colorType> getTrimmedColors(const charArray<PriorityColor>& arra
 		}
 	}
 
+	if (colors.second == 0) {
+		swap(colors.first, colors.second);
+		// prefer setting bg over fg -- a space is 1/4 the bytes of a filled block
+	}
+
 	/*if ((colors.first == COLOR_YELLOW || colors.second == COLOR_YELLOW)
 		&& (arrayChar[0][0].color != COLOR_YELLOW
 		||  arrayChar[0][1].color != COLOR_YELLOW
