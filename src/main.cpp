@@ -8,6 +8,7 @@
 #include <vector>
 #include <random>
 
+#include "cxxopts/cxxopts.hpp"
 #include "types.cpp"
 #include "colors.cpp"
 #include "sextantBlocks.cpp"
@@ -115,32 +116,93 @@ void drawBg(SextantDrawing& drawing) {
 	}
 }
 
-// Try to find sane values based on screen size if they aren't specified.
-void guessConstants() {
-	using namespace RuntimeConstants;
+[[noreturn]] static void finish(int sig);
+[[noreturn]] static void exitStatus(unsigned char status);
 
-	pipeGapVert = birdDrawing.getHeight() * 8;
-	pipeWidth = 6;
-	pipeGapHoriz = round((double) COLS / 2);
+// Get constants from CLI args.
+// Call before curses init
+[[nodiscard]] cxxopts::ParseResult parseArgs(int argc, char* argv[]) {
+	cxxopts::Options options("fly", "A terminal Flappy Bird game.");
 
-	frameDelay = chrono::milliseconds(50);
-	pipeProcessFrames = 2;
+	// TODO: document units
+	options.add_options()
+		("v,vert-gap", "Set the gap of the hole in pipes", cxxopts::value<uint>())
+		("h,horiz-gap", "Set the distance between pipes", cxxopts::value<uint>())
+		("w,pipe-width", "Set the width of pipes", cxxopts::value<uint>())
 
-	gravity = 0.1;
-	birdXPos = round((double) COLS * 2 / 4);
-	birdJumpVelocity = gravity * 20;
+		("g,gravity", "Sets the strength of gravity", cxxopts::value<double>())
+		("j,jump-speed", "Sets how much force jumps create", cxxopts::value<double>())
+		("b,bird-x", "Sets the left-right positioning of the bird", cxxopts::value<uint>())
+
+		("f,frame-rate", "Sets the framerate to update the bird", cxxopts::value<uint>())
+		("s,skip-frames", "Renders pipes and backgound only every n frames to make the bird smoother", cxxopts::value<uint>())
+
+		("help", "Print usage")
+		;
+
+	class cliParseException : public runtime_error {
+		public:
+			cliParseException(const char* reason) : runtime_error(reason) {};
+	};
+
+	cxxopts::ParseResult parsed;
+	try {
+		parsed = options.parse(argc, argv);
+
+		// do any other input validation here
+		if (parsed.count("frame-rate") && parsed["frame-rate"].as<uint>() == 0)
+			throw cliParseException("frame rate cannot be 0");
+	} catch (const cxxopts::exceptions::parsing& e) {
+		cerr << "Error while parsing command line arguments: " << e.what() << endl;
+		exit(1);
+	} catch (const cliParseException& e) {
+		cerr << "Invalid command line argument: " << e.what() << endl;
+		exit(1);
+	}
+
+	if (parsed.count("help")) {
+		cout << options.help() << endl;
+		exit(0);
+	}
+
+	return parsed;
 }
 
-[[noreturn]] static void finish(int sig);
+// Apply the parsed args
+// Try to guess sane defaults based on screen size if they aren't specified
+// Call after curses init
+void setArgs(cxxopts::ParseResult& parsed) {
+	using namespace RuntimeConstants;
+
+	#define setWithDefault(varName, paramName, fallback) \
+		varName = parsed.count(paramName) ? parsed[paramName].as<decltype(varName)>() : (fallback)
+
+	setWithDefault(pipeGapVert, "vert-gap", birdDrawing.getHeight() * 8);
+	setWithDefault(pipeGapHoriz, "horiz-gap", round((double) COLS / 2));
+	setWithDefault(pipeWidth, "pipe-width", 6);
+
+	// this one is a bit more complicated -- we need to take the reciprocal and convert to milliseconds
+	frameDelay = chrono::milliseconds((uint) round(1.0 / (parsed.count("framerate") ? parsed["framerate"].as<uint>() : 10) * 1000));
+	setWithDefault(pipeProcessFrames, "skip-frames", 1);
+
+	setWithDefault(gravity, "gravity", 0.1);
+	setWithDefault(birdXPos, "bird-x", round((double) COLS * 2 / 4));
+	setWithDefault(birdJumpVelocity, "jump-speed", gravity * 20);
+
+	#undef setWithDefault
+}
+
 void displayRestartScr(SextantDrawing& drawing);
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
+int main(int argc, char* argv[]) {
 
 	#ifndef NDEBUG
 	// Because I'm too lazy to setup proper tests.
 	assertEq(gameOver.getWidth() % 2, 0, "Game over size must be a round number of chars.");
 	assertEq(gameOver.getHeight() % 3, 0, "Game over size must be a round number of chars.");
 	#endif
+
+	auto parsed = parseArgs(argc, argv);
 
     signal(SIGINT, finish); // arrange interrupts to terminate
 
@@ -155,7 +217,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
         start_color();
     }
 
-	guessConstants();
+	setArgs(parsed);
 
 	vector<Pipe> pipes;
 	uint timeSinceLastPipe = RuntimeConstants::pipeGapHoriz + 1;
@@ -251,10 +313,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[]) {
 
 		move(0, 0);
 		refresh();
-		this_thread::sleep_for(chrono::milliseconds(20));
+		this_thread::sleep_for(RuntimeConstants::frameDelay);
     }
 
-    finish(0);
+    exitStatus(2); // should be unreachable
 }
 
 // After writing this, I've concluded that layout managers are magic.
@@ -300,14 +362,18 @@ void displayRestartScr(SextantDrawing& drawing) {
 		if (c == 'c' || c == 'C') {
 			break;
 		} else if (c == 'q' || c == 'Q') {
-			finish(0);
+			exitStatus(0);
 		}
 	}
 	nodelay(stdscr, true);
 }
 
 [[noreturn]] static void finish([[maybe_unused]] int sig) {
-    endwin();
-    exit(0);
+    exitStatus(0);
+}
+
+[[noreturn]] static void exitStatus(unsigned char status) {
+	endwin();
+	exit(status);
 }
 

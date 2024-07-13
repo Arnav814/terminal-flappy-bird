@@ -343,8 +343,8 @@ void SextantDrawing::render(const CharCoord& topLeft) const {
 			myString += " ";
 			myString += to_string(colors.second);
 
-			attrset(getColorPair(COLOR_GREEN, COLOR_BLACK));
-			mvaddstr(10, 12, myString.c_str());
+			//attrset(getColorPair(COLOR_GREEN, COLOR_BLACK));
+			//mvaddstr(10, 12, myString.c_str());
 
 			for (unsigned int x = 0; x < asArray.size(); x++) {
 				for (unsigned int y = 0; y < asArray[x].size(); y++) {
