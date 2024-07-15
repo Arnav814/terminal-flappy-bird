@@ -154,7 +154,7 @@ void drawBg(SextantDrawing& drawing) {
 
 		("b,no-background", "Disables the background")
 		("B,background", "Enables the background (this is the default)")
-		("s,bg-skip-frames", "Renders pipes only every n frames to make the bird smoother", cxxopts::value<uint>())
+		("s,bg-skip-frames", "Renders pipes only every n frames to make things smoother", cxxopts::value<uint>())
 
 		("f,frame-rate", "Sets the framerate to update the bird", cxxopts::value<uint>())
 		("p,pipe-skip-frames", "Renders pipes only every n frames to make the bird smoother", cxxopts::value<uint>())
@@ -248,7 +248,9 @@ int main(int argc, char* argv[]) {
     }
 
 	setArgs(parsed);
-	initSines();
+	if (RuntimeConstants::showBackground)
+		initSines();
+
 
 	vector<Pipe> pipes;
 	uint timeSinceLastPipe = RuntimeConstants::pipeGapHoriz + 1;
@@ -293,12 +295,14 @@ int main(int argc, char* argv[]) {
 		foregroundDrawing.clear();
 
 
-		if (timeSinceBgProcessed >= RuntimeConstants::bgProcessFrames) {
-			bgDrawing.clear();
-			drawBg(bgDrawing);
-			timeSinceBgProcessed = 0;
+		if (RuntimeConstants::showBackground) {
+			if (timeSinceBgProcessed >= RuntimeConstants::bgProcessFrames) {
+				bgDrawing.clear();
+				drawBg(bgDrawing);
+				timeSinceBgProcessed = 0;
+			}
+			timeSinceBgProcessed++;
 		}
-		timeSinceBgProcessed++;
 
 		for (Pipe& pipe: pipes) {
 			drawPipe(foregroundDrawing, pipe);
@@ -341,7 +345,9 @@ int main(int argc, char* argv[]) {
 		//mvaddstr(5, 15, to_string(bird.yPos).c_str());
 		//mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
-		finalDrawing.insert(SextantCoord(0, 0), bgDrawing);
+		if (RuntimeConstants::showBackground)
+			finalDrawing.insert(SextantCoord(0, 0), bgDrawing);
+
 		finalDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
 
 		if (isGameOver) {
@@ -351,6 +357,10 @@ int main(int argc, char* argv[]) {
 				bird.yVel = 0.0;
 				pipes.clear();
 				timeSinceLastPipe = RuntimeConstants::pipeGapHoriz+1;
+				if (RuntimeConstants::showBackground) {
+					timeSinceBgProcessed = RuntimeConstants::bgProcessFrames+1;
+					initSines();
+				}
 				isGameOver = false;
 		}
 

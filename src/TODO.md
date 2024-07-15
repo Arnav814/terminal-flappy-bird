@@ -7,5 +7,6 @@ List of project todos
 4. Handle resize
 5. Config file
 6. Install rule
-7. Package it?
+7. Score file
+8. Package it?
 
