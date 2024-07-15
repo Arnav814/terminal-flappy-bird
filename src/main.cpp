@@ -12,21 +12,26 @@
 #include "types.cpp"
 #include "colors.cpp"
 #include "sextantBlocks.cpp"
+#include "backgroundGen.cpp"
 #include "moreAssertions.cpp"
 
 using namespace std;
 
 // For things like jump height, etc, etc
 namespace RuntimeConstants {
+	bool showBackground;
+
 	uint pipeGapVert;
 	uint pipeWidth;
 	uint pipeGapHoriz;
 	uint birdXPos;
-
-	chrono::milliseconds frameDelay;
 	uint pipeProcessFrames;
 	// pipes will be processed every n frames
 	// essentially makes the bird update more frequently than the pipes
+	uint bgProcessFrames;
+	// the same, but for the background
+
+	chrono::milliseconds frameDelay;
 
 	double gravity;
 	double birdJumpVelocity;
@@ -110,9 +115,22 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	drawing.insert(SextantCoord(pipe.height + RuntimeConstants::pipeGapVert/2, pipe.xPos - floor(RuntimeConstants::pipeWidth/2)), bottomPipe);
 }
 
+uint currentBgPos = 0; // It was easiest to make this a global, so yeah
+
 void drawBg(SextantDrawing& drawing) {
+	static vector<uint> cache = {0};
+
+	cache.erase(cache.begin());
+	while (cache.size() < (uint) COLS * 2) {
+		cache.push_back(getBgVal(currentBgPos++));
+	}
+
 	for (SextantCoord coord: drawing.getIterator()) {
-		drawing.set(coord, PriorityColor(COLOR_BLUE, 1));
+		if (LINES * 3 - cache[coord.x] < (uint) coord.y) {
+			drawing.set(coord, PriorityColor(COLOR_GREEN, 2));
+		} else {
+			drawing.set(coord, PriorityColor(COLOR_BLUE, 1));
+		}
 	}
 }
 
@@ -132,10 +150,14 @@ void drawBg(SextantDrawing& drawing) {
 
 		("g,gravity", "Sets the strength of gravity", cxxopts::value<double>())
 		("j,jump-speed", "Sets how much force jumps create", cxxopts::value<double>())
-		("b,bird-x", "Sets the left-right positioning of the bird", cxxopts::value<uint>())
+		("x,bird-x", "Sets the left-right position of the bird", cxxopts::value<uint>())
+
+		("b,no-background", "Disables the background")
+		("B,background", "Enables the background (this is the default)")
+		("s,bg-skip-frames", "Renders pipes only every n frames to make the bird smoother", cxxopts::value<uint>())
 
 		("f,frame-rate", "Sets the framerate to update the bird", cxxopts::value<uint>())
-		("s,skip-frames", "Renders pipes and backgound only every n frames to make the bird smoother", cxxopts::value<uint>())
+		("p,pipe-skip-frames", "Renders pipes only every n frames to make the bird smoother", cxxopts::value<uint>())
 
 		("help", "Print usage")
 		;
@@ -177,13 +199,21 @@ void setArgs(cxxopts::ParseResult& parsed) {
 	#define setWithDefault(varName, paramName, fallback) \
 		varName = parsed.count(paramName) ? parsed[paramName].as<decltype(varName)>() : (fallback)
 
+	showBackground = true;
+	if (parsed.count("no-background"))
+		showBackground = false;
+	if (parsed.count("background"))
+		showBackground = true;
+	// the default is true, and background takes precedence over no-background
+
 	setWithDefault(pipeGapVert, "vert-gap", birdDrawing.getHeight() * 8);
 	setWithDefault(pipeGapHoriz, "horiz-gap", round((double) COLS / 2));
 	setWithDefault(pipeWidth, "pipe-width", 6);
+	setWithDefault(pipeProcessFrames, "pipe-skip-frames", 1);
+	setWithDefault(bgProcessFrames, "bg-skip-frames", 1);
 
 	// this one is a bit more complicated -- we need to take the reciprocal and convert to milliseconds
-	frameDelay = chrono::milliseconds((uint) round(1.0 / (parsed.count("framerate") ? parsed["framerate"].as<uint>() : 10) * 1000));
-	setWithDefault(pipeProcessFrames, "skip-frames", 1);
+	frameDelay = chrono::milliseconds((uint) round(1.0 / (parsed.count("frame-rate") ? parsed["frame-rate"].as<uint>() : 10) * 1000));
 
 	setWithDefault(gravity, "gravity", 0.1);
 	setWithDefault(birdXPos, "bird-x", round((double) COLS * 2 / 4));
@@ -218,23 +248,31 @@ int main(int argc, char* argv[]) {
     }
 
 	setArgs(parsed);
+	initSines();
 
 	vector<Pipe> pipes;
 	uint timeSinceLastPipe = RuntimeConstants::pipeGapHoriz + 1;
 	uint timeSincePipesProcessed = RuntimeConstants::pipeProcessFrames + 1;
 	Bird bird(10.0, 0.0);
 
-	SextantDrawing mainDrawing(LINES*3, COLS*2);
+	SextantDrawing finalDrawing(LINES*3, COLS*2);
+	SextantDrawing bgDrawing(LINES*3, COLS*2);
 	SextantDrawing foregroundDrawing(LINES*3, COLS*2);
 
+	uint timeSinceBgProcessed = RuntimeConstants::bgProcessFrames + 1;
+
 	bool isGameOver = false;
+	auto startTs = chrono::system_clock::now(); // the set is so I don't have to type the type
 
     while (true) {
 		//logPos = 15;
+		startTs = chrono::system_clock::now();
 
 		// TODO: better resize handling than crashing
-		assertEq(mainDrawing.getHeight(), LINES * 3, "Main drawing sized incorrectly for terminal.");
-		assertEq(mainDrawing.getWidth(), COLS * 2, "Main drawing sized incorrectly for terminal.");
+		assertEq(finalDrawing.getHeight(), LINES * 3, "Final drawing sized incorrectly for terminal.");
+		assertEq(finalDrawing.getWidth(), COLS * 2, "Final drawing sized incorrectly for terminal.");
+		assertEq(bgDrawing.getHeight(), LINES * 3, "Background drawing sized incorrectly for terminal.");
+		assertEq(bgDrawing.getWidth(), COLS * 2, "Background drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getHeight(), LINES * 3, "Foreground drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getWidth(), COLS * 2, "Foreground drawing sized incorrectly for terminal.");
 
@@ -251,10 +289,16 @@ int main(int argc, char* argv[]) {
 		}
 
 		erase();
-		mainDrawing.clear();
+		finalDrawing.clear();
 		foregroundDrawing.clear();
 
-		drawBg(mainDrawing);
+
+		if (timeSinceBgProcessed >= RuntimeConstants::bgProcessFrames) {
+			bgDrawing.clear();
+			drawBg(bgDrawing);
+			timeSinceBgProcessed = 0;
+		}
+		timeSinceBgProcessed++;
 
 		for (Pipe& pipe: pipes) {
 			drawPipe(foregroundDrawing, pipe);
@@ -297,11 +341,12 @@ int main(int argc, char* argv[]) {
 		//mvaddstr(5, 15, to_string(bird.yPos).c_str());
 		//mvaddstr(6, 15, to_string(bird.yVel).c_str());
 
-		mainDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
+		finalDrawing.insert(SextantCoord(0, 0), bgDrawing);
+		finalDrawing.insert(SextantCoord(0, 0), foregroundDrawing);
 
 		if (isGameOver) {
 				beep();
-				displayRestartScr(mainDrawing);
+				displayRestartScr(finalDrawing);
 				bird.yPos = 10.0;
 				bird.yVel = 0.0;
 				pipes.clear();
@@ -309,11 +354,11 @@ int main(int argc, char* argv[]) {
 				isGameOver = false;
 		}
 
-		mainDrawing.render(CharCoord(0, 0));
+		finalDrawing.render(CharCoord(0, 0));
 
 		move(0, 0);
 		refresh();
-		this_thread::sleep_for(RuntimeConstants::frameDelay);
+		this_thread::sleep_for(RuntimeConstants::frameDelay - (chrono::system_clock::now() - startTs));
     }
 
     exitStatus(2); // should be unreachable

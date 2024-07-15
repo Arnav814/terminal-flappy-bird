@@ -33,7 +33,6 @@
 			"description": "For use with gdb.",
 			"inherits": "dev",
 			"environment": {
-				"CXX_SANITIZE": "-fsanitize=undefined",
 				"CXX_DEBUG": "-ggdb"
 			}
 		},

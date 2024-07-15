@@ -2,9 +2,10 @@ List of project todos
 =====================
 
 1. Pause screen
-2. Background(s?)
-3. Handle resize
-4. Config file
-5. Install rule
-6. Package it?
+2. Better background(s?)
+3. Truecolor support
+4. Handle resize
+5. Config file
+6. Install rule
+7. Package it?
 
