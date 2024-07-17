@@ -1,12 +1,14 @@
 List of project todos
 =====================
 
-1. Pause screen
-2. Better background(s?)
-3. Truecolor support
-4. Handle resize
+1. Handle resize
+2. Truecolor support
+3. Make speed of things not depend on frame rate
+4. Man page
+
 5. Config file
 6. Install rule
-7. Score file
-8. Package it?
+7. Better background(s?)
+8. Score file
+9. Package it?
 

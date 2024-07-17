@@ -25,6 +25,7 @@ namespace RuntimeConstants {
 	uint pipeWidth;
 	uint pipeGapHoriz;
 	uint birdXPos;
+	uint pipeSpeed;
 	uint pipeProcessFrames;
 	// pipes will be processed every n frames
 	// essentially makes the bird update more frequently than the pipes
@@ -59,6 +60,20 @@ const SextantDrawing gameOver(
 	 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
 	 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F},
 	 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
+	 // The extra line makes this an even 2 chars tall
+);
+#undef F
+#undef O
+
+#define F PriorityColor(COLOR_RED, 250)
+#define O PriorityColor(COLOR_BLACK, 249)
+const SextantDrawing paused(
+	{{F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
+	 {F,O,O,F,O,F,O,O,F,O,F,O,O,F,O,F,O,O,O,O,F,O,O,O,O,F,O,O,F},
+	 {F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,O,O,F},
+	 {F,O,O,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
+	 {F,O,O,O,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
+	 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
 );
 #undef F
 #undef O
@@ -135,7 +150,7 @@ void drawBg(SextantDrawing& drawing) {
 }
 
 [[noreturn]] static void finish(int sig);
-[[noreturn]] static void exitStatus(unsigned char status);
+[[noreturn]] static void exitStatus(int status);
 
 // Get constants from CLI args.
 // Call before curses init
@@ -147,6 +162,7 @@ void drawBg(SextantDrawing& drawing) {
 		("v,vert-gap", "Set the gap of the hole in pipes", cxxopts::value<uint>())
 		("h,horiz-gap", "Set the distance between pipes", cxxopts::value<uint>())
 		("w,pipe-width", "Set the width of pipes", cxxopts::value<uint>())
+		("s,pipe-speed", "Sets how fast the pipes move", cxxopts::value<uint>())
 
 		("g,gravity", "Sets the strength of gravity", cxxopts::value<double>())
 		("j,jump-speed", "Sets how much force jumps create", cxxopts::value<double>())
@@ -154,10 +170,10 @@ void drawBg(SextantDrawing& drawing) {
 
 		("b,no-background", "Disables the background")
 		("B,background", "Enables the background (this is the default)")
-		("s,bg-skip-frames", "Renders pipes only every n frames to make things smoother", cxxopts::value<uint>())
 
 		("f,frame-rate", "Sets the framerate to update the bird", cxxopts::value<uint>())
 		("p,pipe-skip-frames", "Renders pipes only every n frames to make the bird smoother", cxxopts::value<uint>())
+		("S,bg-skip-frames", "Renders pipes only every n frames to make things smoother", cxxopts::value<uint>())
 
 		("help", "Print usage")
 		;
@@ -174,6 +190,8 @@ void drawBg(SextantDrawing& drawing) {
 		// do any other input validation here
 		if (parsed.count("frame-rate") && parsed["frame-rate"].as<uint>() == 0)
 			throw cliParseException("frame rate cannot be 0");
+		if (parsed.count("pipe-speed") && parsed["pipe-speed"].as<uint>() == 0)
+			throw cliParseException("pipe speed cannot be 0");
 	} catch (const cxxopts::exceptions::parsing& e) {
 		cerr << "Error while parsing command line arguments: " << e.what() << endl;
 		exit(1);
@@ -207,8 +225,9 @@ void setArgs(cxxopts::ParseResult& parsed) {
 	// the default is true, and background takes precedence over no-background
 
 	setWithDefault(pipeGapVert, "vert-gap", birdDrawing.getHeight() * 8);
-	setWithDefault(pipeGapHoriz, "horiz-gap", round((double) COLS / 2));
 	setWithDefault(pipeWidth, "pipe-width", 6);
+	setWithDefault(pipeSpeed, "pipe-speed", 1);
+	setWithDefault(pipeGapHoriz, "horiz-gap", round(((double) COLS / 4 + 10) / pipeSpeed));
 	setWithDefault(pipeProcessFrames, "pipe-skip-frames", 1);
 	setWithDefault(bgProcessFrames, "bg-skip-frames", 1);
 
@@ -222,19 +241,15 @@ void setArgs(cxxopts::ParseResult& parsed) {
 	#undef setWithDefault
 }
 
-void displayRestartScr(SextantDrawing& drawing);
+void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message);
 
 int main(int argc, char* argv[]) {
-
-	#ifndef NDEBUG
-	// Because I'm too lazy to setup proper tests.
-	assertEq(gameOver.getWidth() % 2, 0, "Game over size must be a round number of chars.");
-	assertEq(gameOver.getHeight() % 3, 0, "Game over size must be a round number of chars.");
-	#endif
-
 	auto parsed = parseArgs(argc, argv);
 
     signal(SIGINT, finish); // arrange interrupts to terminate
+	signal(SIGTERM, finish);
+	signal(SIGQUIT, finish);
+	signal(SIGSEGV, finish);
 
 	setlocale(LC_ALL, "");
 
@@ -285,7 +300,9 @@ int main(int argc, char* argv[]) {
 					bird.yVel = -RuntimeConstants::birdJumpVelocity;
 					break;
 				case 'p':
-					sleep(10);
+				case 'P':
+				case '\e':
+					displayMsgAndPause(finalDrawing, paused);
 					break;
 			}
 		}
@@ -316,7 +333,7 @@ int main(int argc, char* argv[]) {
 			timeSinceLastPipe++;
 
 			for (Pipe& pipe: pipes) {
-				pipe.xPos--;
+				pipe.xPos -= RuntimeConstants::pipeSpeed;
 			}
 
 			// delete offscreen pipes
@@ -352,7 +369,7 @@ int main(int argc, char* argv[]) {
 
 		if (isGameOver) {
 				beep();
-				displayRestartScr(finalDrawing);
+				displayMsgAndPause(finalDrawing, gameOver);
 				bird.yPos = 10.0;
 				bird.yVel = 0.0;
 				pipes.clear();
@@ -375,16 +392,16 @@ int main(int argc, char* argv[]) {
 }
 
 // After writing this, I've concluded that layout managers are magic.
-void displayRestartScr(SextantDrawing& drawing) {
+void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message) {
 	#define PADDING 1
 	CharCoord center = CharCoord(LINES/2, COLS/2);
 
-	uint height = gameOver.getHeight() / 3 + 3*PADDING;
+	uint height = message.getHeight() / 3 + 3*PADDING;
 
 	CharCoord topLeft = center - CharCoord(ceil((double) height / 2),
-		ceil((double) gameOver.getWidth() / 4) + PADDING);
+		ceil((double) message.getWidth() / 4) + PADDING);
 	CharCoord bottomRight = center + CharCoord(floor((double) height / 2),
-		floor((double) gameOver.getWidth() / 4) + PADDING - 1 /* inexplicable -1 that makes it work */);
+		floor((double) message.getWidth() / 4) + PADDING - 1 /* inexplicable -1 that makes it work */);
 
 	// draw an outline
 	for (SextantCoord coord: CoordIterator(SextantCoord(topLeft), SextantCoord(bottomRight) + SextantCoord(2, 1))) {
@@ -397,7 +414,7 @@ void displayRestartScr(SextantDrawing& drawing) {
 		drawing.set(coord, PriorityColor(COLOR_BLACK, 249));
 	}
 
-	drawing.insert(topLeft + CharCoord(PADDING, PADDING), gameOver);
+	drawing.insert(topLeft + CharCoord(PADDING, PADDING), message);
 	drawing.render(CharCoord(0, 0));
 
 	attrset(getColorPair(COLOR_RED, COLOR_BLACK));
@@ -423,11 +440,23 @@ void displayRestartScr(SextantDrawing& drawing) {
 	nodelay(stdscr, true);
 }
 
-[[noreturn]] static void finish([[maybe_unused]] int sig) {
-    exitStatus(0);
+[[noreturn]] static void finish(int sig) {
+	switch (sig) {
+		case SIGINT:
+		case SIGTERM:
+		case SIGQUIT:
+			exitStatus(0);
+			break;
+		case SIGSEGV:
+			exitStatus(3);
+			break;
+		default:
+			exitStatus(4);
+			break;
+	}
 }
 
-[[noreturn]] static void exitStatus(unsigned char status) {
+[[noreturn]] static void exitStatus(int status) {
 	endwin();
 	exit(status);
 }
