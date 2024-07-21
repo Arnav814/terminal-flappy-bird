@@ -79,7 +79,15 @@ const SextantDrawing paused(
 #undef F
 #undef O
 
-struct Pipe {int xPos; int height;};
+struct Pipe {
+	int xPos; int height; bool isPassed;
+	Pipe(int xPos, int height) {
+		this->xPos = xPos;
+		this->height = height;
+		this->isPassed = false;
+	}
+};
+
 struct Bird {double yPos; double yVel;};
 
 // both min and max are inclusive
@@ -240,7 +248,7 @@ void setArgs(cxxopts::ParseResult& parsed) {
 	#undef setWithDefault
 }
 
-void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message);
+void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message, const uint score);
 
 bool screenResized = false;
 void setScreenResized([[maybe_unused]] int sig) {
@@ -284,6 +292,8 @@ int main(int argc, char* argv[]) {
 
 	uint timeSinceBgProcessed = RuntimeConstants::bgProcessFrames + 1;
 
+	uint score = 0;
+
 	bool isGameOver = false;
 	auto startTs = chrono::system_clock::now(); // the set is so I don't have to type the type
 
@@ -293,7 +303,7 @@ int main(int argc, char* argv[]) {
 
 		if (screenResized) {
 			// pause so things only need to be rescaled once
-			displayMsgAndPause(finalDrawing, paused);
+			displayMsgAndPause(finalDrawing, paused, score);
 			screenResized = false;
 			
 			// actually resize the screen
@@ -344,7 +354,7 @@ int main(int argc, char* argv[]) {
 				case 'p':
 				case 'P':
 				case '\e':
-					displayMsgAndPause(finalDrawing, paused);
+					displayMsgAndPause(finalDrawing, paused, score);
 					break;
 			}
 		}
@@ -363,12 +373,19 @@ int main(int argc, char* argv[]) {
 		}
 
 		for (Pipe& pipe: pipes) {
+			if (pipe.xPos + RuntimeConstants::pipeWidth/2 + 1 < // +1 to account for the pipe rims
+					RuntimeConstants::birdXPos - birdDrawing.getWidth()/2 &&
+					!pipe.isPassed) {
+				score++;
+				pipe.isPassed = true;
+			}
 			drawPipe(foregroundDrawing, pipe);
 		}
 
 		if (timeSincePipesProcessed >= RuntimeConstants::pipeProcessFrames) {
 			if (timeSinceLastPipe >= RuntimeConstants::pipeGapHoriz) {
-				pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(RuntimeConstants::pipeGapVert / 2 + 1, LINES*3 - RuntimeConstants::pipeGapVert/2 - 1)));
+				pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1,
+					randrange(RuntimeConstants::pipeGapVert / 2 + 1, LINES*3 - RuntimeConstants::pipeGapVert/2 - 1)));
 				timeSinceLastPipe = 0;
 			}
 			timeSinceLastPipe++;
@@ -410,7 +427,7 @@ int main(int argc, char* argv[]) {
 
 		if (isGameOver) {
 				beep();
-				displayMsgAndPause(finalDrawing, gameOver);
+				displayMsgAndPause(finalDrawing, gameOver, score);
 				bird.yPos = 10.0;
 				bird.yVel = 0.0;
 				pipes.clear();
@@ -419,6 +436,7 @@ int main(int argc, char* argv[]) {
 					timeSinceBgProcessed = RuntimeConstants::bgProcessFrames+1;
 					initSines();
 				}
+				score = 0;
 				isGameOver = false;
 		}
 
@@ -433,7 +451,7 @@ int main(int argc, char* argv[]) {
 }
 
 // After writing this, I've concluded that layout managers are magic.
-void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message) {
+void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message, const uint score) {
 	#define PADDING 1
 	CharCoord center = CharCoord(LINES/2, COLS/2);
 
@@ -459,6 +477,8 @@ void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message) 
 	drawing.render(CharCoord(0, 0));
 
 	attrset(getColorPair(COLOR_RED, COLOR_BLACK));
+	string scoreStr = "SCORE: " + to_string(score);
+	mvaddstr(bottomRight.y - PADDING - 1, topLeft.x + PADDING, scoreStr.c_str());
 	mvaddstr(bottomRight.y - PADDING, topLeft.x + PADDING, "CONTINUE?");
 	string right = "QUIT?";
 	mvaddstr(bottomRight.y - PADDING,
