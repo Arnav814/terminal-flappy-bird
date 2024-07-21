@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <signal.h>
+#include <sys/ioctl.h>
 #include <thread>
 #include <vector>
 #include <random>
@@ -81,8 +82,6 @@ const SextantDrawing paused(
 struct Pipe {int xPos; int height;};
 struct Bird {double yPos; double yVel;};
 
-//int logPos = 15;
-
 // both min and max are inclusive
 int randrange(int min, int max) {
     //static default_random_engine engine {random_device{}()};
@@ -94,13 +93,14 @@ int randrange(int min, int max) {
 
 void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	assert(pipe.xPos >= 0 && pipe.xPos <= COLS*2);
-	assertGt(pipe.height - RuntimeConstants::pipeGapVert/2, 0, "Invalid pipe height");
-	assertGt(LINES*3 - (pipe.height + RuntimeConstants::pipeGapVert/2), 0, "Invalid pipe height");
+	assertGt(pipe.height - (int) RuntimeConstants::pipeGapVert/2, 0, "Invalid pipe height");
+	assertLt(pipe.height + (int) RuntimeConstants::pipeGapVert/2, LINES * 3, "Invalid pipe height");
 
 	SextantDrawing topPipe(pipe.height - RuntimeConstants::pipeGapVert/2, RuntimeConstants::pipeWidth+2);
 
 	for (int y = 0; y < topPipe.getHeight(); y++) {
-		assert(y >= 0 && y <= LINES*3);
+		assertGtEq(y, 0, "");
+		assertLtEq(y, LINES * 3, "");
 		for (int x = 1; x < topPipe.getWidth()-1; x++) {
 			topPipe.set(SextantCoord(y, x), PIPE_FILL);
 		}
@@ -113,7 +113,8 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 	SextantDrawing bottomPipe(LINES*3 - (pipe.height + RuntimeConstants::pipeGapVert/2), RuntimeConstants::pipeWidth+2);
 
 	for (int y = 0; y < bottomPipe.getHeight(); y++) {
-		assert(y >= 0 && y <= LINES*3);
+		assertGtEq(y, 0, "");
+		assertLtEq(y, LINES * 3, "");
 		for (int x = 1; x < bottomPipe.getWidth()-1; x++) {
 			bottomPipe.set(SextantCoord(y, x), PIPE_FILL);
 		}
@@ -121,9 +122,6 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 
 	bottomPipe.set(SextantCoord(0, 0), PIPE_FILL);
 	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PIPE_FILL);
-
-	//mvaddstr(logPos++, 15, to_string(pipe.xPos).c_str());
-	//mvaddstr(16, 15, to_string(mainDrawing.getWidth()).c_str());
 
 	drawing.insert(SextantCoord(0, pipe.xPos - floor(RuntimeConstants::pipeWidth/2)), topPipe);
 	//topPipe.render(round((pipe.xPos - floor(RuntimeConstants::pipeWidth/2) - 1) / 3), 0);
@@ -149,8 +147,9 @@ void drawBg(SextantDrawing& drawing) {
 	}
 }
 
-[[noreturn]] static void finish(int sig);
-[[noreturn]] static void exitStatus(int status);
+[[noreturn]] void finish(int sig);
+[[noreturn]] void exitStatus(int status);
+
 
 // Get constants from CLI args.
 // Call before curses init
@@ -243,6 +242,11 @@ void setArgs(cxxopts::ParseResult& parsed) {
 
 void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message);
 
+bool screenResized = false;
+void setScreenResized([[maybe_unused]] int sig) {
+	screenResized = true;
+}
+
 int main(int argc, char* argv[]) {
 	auto parsed = parseArgs(argc, argv);
 
@@ -250,6 +254,8 @@ int main(int argc, char* argv[]) {
 	signal(SIGTERM, finish);
 	signal(SIGQUIT, finish);
 	signal(SIGSEGV, finish);
+
+	signal(SIGWINCH, setScreenResized);
 
 	setlocale(LC_ALL, "");
 
@@ -285,13 +291,49 @@ int main(int argc, char* argv[]) {
 		//logPos = 15;
 		startTs = chrono::system_clock::now();
 
-		// TODO: better resize handling than crashing
+		if (screenResized) {
+			// pause so things only need to be rescaled once
+			displayMsgAndPause(finalDrawing, paused);
+			screenResized = false;
+			
+			// actually resize the screen
+			CharCoord oldSize(LINES, COLS);
+			winsize newWindowSize;
+			int ioctlStatus = ioctl(STDIN_FILENO, TIOCGWINSZ, &newWindowSize);
+			if (ioctlStatus)
+				throw runtime_error("ioctl is doing bad stuff. Status: " +  to_string(ioctlStatus)
+					+ ". I have no clue how/why it works or why it isn't working now. Sorry. :-[");
+			resizeterm(newWindowSize.ws_row, newWindowSize.ws_col);
+
+			// resize drawings
+			finalDrawing.resize(LINES * 3, COLS * 2);
+			bgDrawing.resize(LINES * 3, COLS * 2);
+			foregroundDrawing.resize(LINES * 3, COLS * 2);
+
+			// make sure everything is redrawn
+			timeSincePipesProcessed = RuntimeConstants::pipeProcessFrames + 1;
+			timeSinceBgProcessed = RuntimeConstants::bgProcessFrames + 1;
+
+			double rescaleCoefX [[maybe_unused]] = (double) COLS / oldSize.x;
+			double rescaleCoefY = (double) LINES / oldSize.y;
+
+			// rescale everything so it fits properly
+			bird.yPos *= rescaleCoefY;
+			erase_if(pipes, [](const Pipe pipe){return pipe.xPos > COLS * 2;});
+			for (Pipe& pipe: pipes) {
+				pipe.height *= rescaleCoefY;
+			}
+
+			clear();
+		}
+
 		assertEq(finalDrawing.getHeight(), LINES * 3, "Final drawing sized incorrectly for terminal.");
 		assertEq(finalDrawing.getWidth(), COLS * 2, "Final drawing sized incorrectly for terminal.");
 		assertEq(bgDrawing.getHeight(), LINES * 3, "Background drawing sized incorrectly for terminal.");
 		assertEq(bgDrawing.getWidth(), COLS * 2, "Background drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getHeight(), LINES * 3, "Foreground drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getWidth(), COLS * 2, "Foreground drawing sized incorrectly for terminal.");
+
 
 		char nextCh;
 		while ((nextCh = getch()) != ERR) {
@@ -311,7 +353,6 @@ int main(int argc, char* argv[]) {
 		finalDrawing.clear();
 		foregroundDrawing.clear();
 
-
 		if (RuntimeConstants::showBackground) {
 			if (timeSinceBgProcessed >= RuntimeConstants::bgProcessFrames) {
 				bgDrawing.clear();
@@ -327,7 +368,7 @@ int main(int argc, char* argv[]) {
 
 		if (timeSincePipesProcessed >= RuntimeConstants::pipeProcessFrames) {
 			if (timeSinceLastPipe >= RuntimeConstants::pipeGapHoriz) {
-				pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(RuntimeConstants::pipeGapVert / 2 + 1, LINES*3 - RuntimeConstants::pipeGapVert/2)));
+				pipes.push_back(Pipe(foregroundDrawing.getWidth() - 1, randrange(RuntimeConstants::pipeGapVert / 2 + 1, LINES*3 - RuntimeConstants::pipeGapVert/2 - 1)));
 				timeSinceLastPipe = 0;
 			}
 			timeSinceLastPipe++;
@@ -440,7 +481,7 @@ void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message) 
 	nodelay(stdscr, true);
 }
 
-[[noreturn]] static void finish(int sig) {
+[[noreturn]] void finish(int sig) {
 	switch (sig) {
 		case SIGINT:
 		case SIGTERM:
@@ -456,7 +497,7 @@ void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message) 
 	}
 }
 
-[[noreturn]] static void exitStatus(int status) {
+[[noreturn]] void exitStatus(int status) {
 	endwin();
 	exit(status);
 }

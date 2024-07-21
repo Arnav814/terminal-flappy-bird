@@ -1,14 +1,14 @@
 List of project todos
 =====================
 
-1. Handle resize
-2. Truecolor support
-3. Make speed of things not depend on frame rate
+2. Show score
+3. Truecolor support
 4. Man page
 
-5. Config file
-6. Install rule
-7. Better background(s?)
-8. Score file
-9. Package it?
+5. Make speed of things not depend on frame rate
+6. Config file
+7. Install rule
+8. Better background(s?)
+9. Score file
+10. Package it?
 

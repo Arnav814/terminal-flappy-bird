@@ -172,6 +172,8 @@ class SextantDrawing {
 			this->drawing = setDrawing;
 		}
 		SextantDrawing(const int height, const int width) {
+			assertGt(height, 0, "height must be positive");
+			assertGt(width, 0, "width must be positive");
 			if (height == 0)
 				throw RescaleException("Cannot create a SextantDrawing with height 0");
 			this->drawing = vector<vector<PriorityColor>>(height, vector<PriorityColor>(width, PriorityColor(0, 0)));
