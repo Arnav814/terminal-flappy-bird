@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 #include <random>
+#include <memory>
 
 #include "cxxopts/cxxopts.hpp"
 #include "types.cpp"
@@ -39,62 +40,78 @@ namespace RuntimeConstants {
 	double birdJumpVelocity;
 };
 
-#define PIPE_FILL 20
-#define BIRD_COLOR 21
-#define HILL_COLOR 22
-#define SKY_COLOR 23
-#define MSG_COLOR 24
-#define MSG_BG 25
+short PIPE_FILL = 20;
+short BIRD_COLOR = 21;
+short HILL_COLOR = 22;
+short SKY_COLOR = 23;
+short MSG_COLOR = 24;
+short MSG_BG = 25;
 
 void initColors() {
-	if (!can_change_color())
-		throw runtime_error("Your terminal does not support changing colors.");
-	#define RGB(r, g, b) r*1000/256, g*1000/256, b*1000/256 // init_color wants 0-1000
-	init_color(PIPE_FILL, RGB(44, 196, 39));
-	init_color(BIRD_COLOR, RGB(228, 225, 74));
-	init_color(HILL_COLOR, RGB(109, 205, 68));
-	init_color(SKY_COLOR, RGB(75, 178, 223));
-	init_color(MSG_COLOR, RGB(200, 0, 23));
-	init_color(MSG_BG, RGB(25, 25, 25));
-	#undef RGB
+	if (can_change_color()) {
+		#define RGB(r, g, b) r*1000/256, g*1000/256, b*1000/256 // init_color wants 0-1000
+		init_color(PIPE_FILL, RGB(44, 196, 39));
+		init_color(BIRD_COLOR, RGB(228, 225, 74));
+		init_color(HILL_COLOR, RGB(109, 205, 68));
+		init_color(SKY_COLOR, RGB(75, 178, 223));
+		init_color(MSG_COLOR, RGB(200, 0, 23));
+		init_color(MSG_BG, RGB(25, 25, 25));
+		#undef RGB
+	} else {
+		// use defualt colors if there is no RGB support
+		// the bird has been made magenta to differentiate it from the hills
+		// the hills have been made yellow to differentiate them from the pipes
+		PIPE_FILL = COLOR_GREEN;
+		BIRD_COLOR = COLOR_MAGENTA;
+		HILL_COLOR = COLOR_YELLOW;
+		SKY_COLOR = COLOR_BLUE;
+		MSG_COLOR = COLOR_RED;
+		MSG_BG = COLOR_BLACK;
+	}
 }
 
-#define F PriorityColor(BIRD_COLOR, 101)
-#define O PriorityColor(COLOR_BLACK, 0)
-const SextantDrawing birdDrawing(
-	{{F,O,O,F,F},
-	 {F,F,F,F,F},
-	 {O,F,F,F,O}}
-);
-#undef F
-#undef O
+unique_ptr<SextantDrawing> birdDrawing;
+unique_ptr<SextantDrawing> gameOver;
+unique_ptr<SextantDrawing> paused;
 
-#define F PriorityColor(MSG_COLOR, 250)
-#define O PriorityColor(MSG_BG, 249)
-const SextantDrawing gameOver(
-	{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
-	 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
-	 {F,O,F,F,O,F,F,F,F,O,F,O,F,O,F,O,F,F,F,F,O,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,O},
-	 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
-	 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F},
-	 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
-	 // The extra line makes this an even 2 chars tall
-);
-#undef F
-#undef O
+void initDrawings() {
+	#define F PriorityColor(BIRD_COLOR, 101)
+	#define O PriorityColor(COLOR_BLACK, 0)
+	birdDrawing = make_unique<SextantDrawing, vector<vector<PriorityColor>>> (
+		{{F,O,O,F,F},
+		 {F,F,F,F,F},
+		 {O,F,F,F,O}}
+	);
+	#undef F
+	#undef O
 
-#define F PriorityColor(MSG_COLOR, 250)
-#define O PriorityColor(MSG_BG, 249)
-const SextantDrawing paused(
-	{{F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
-	 {F,O,O,F,O,F,O,O,F,O,F,O,O,F,O,F,O,O,O,O,F,O,O,O,O,F,O,O,F},
-	 {F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,O,O,F},
-	 {F,O,O,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
-	 {F,O,O,O,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
-	 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
-);
-#undef F
-#undef O
+	#define F PriorityColor(MSG_COLOR, 250)
+	#define O PriorityColor(MSG_BG, 249)
+	gameOver = make_unique<SextantDrawing, vector<vector<PriorityColor>>> (
+		{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
+		 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
+		 {F,O,F,F,O,F,F,F,F,O,F,O,F,O,F,O,F,F,F,F,O,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,O},
+		 {F,O,O,F,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,O,F,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,O,F},
+		 {F,F,F,F,O,F,O,O,F,O,F,O,O,O,F,O,F,F,F,F,O,O,F,F,F,F,O,O,O,F,O,O,O,F,F,F,F,O,F,O,O,F},
+		 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
+		 // The extra line makes this an even 2 chars tall
+	);
+	#undef F
+	#undef O
+
+	#define F PriorityColor(MSG_COLOR, 250)
+	#define O PriorityColor(MSG_BG, 249)
+	paused = make_unique<SextantDrawing, vector<vector<PriorityColor>>> (
+		{{F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
+		 {F,O,O,F,O,F,O,O,F,O,F,O,O,F,O,F,O,O,O,O,F,O,O,O,O,F,O,O,F},
+		 {F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,O,O,F},
+		 {F,O,O,O,O,F,O,O,F,O,F,O,O,F,O,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
+		 {F,O,O,O,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
+		 {O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O}}
+	);
+	#undef F
+	#undef O
+}
 
 struct Pipe {
 	int xPos; int height; bool isPassed;
@@ -247,7 +264,7 @@ void setArgs(cxxopts::ParseResult& parsed) {
 		showBackground = true;
 	// the default is true, and background takes precedence over no-background
 
-	setWithDefault(pipeGapVert, "vert-gap", birdDrawing.getHeight() * 8);
+	setWithDefault(pipeGapVert, "vert-gap", birdDrawing->getHeight() * 8);
 	setWithDefault(pipeWidth, "pipe-width", 6);
 	setWithDefault(pipeSpeed, "pipe-speed", 1);
 	setWithDefault(pipeGapHoriz, "horiz-gap", round(((double) COLS / 4 + 10) / pipeSpeed));
@@ -296,6 +313,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	initColors();
+	initDrawings();
 
 	setArgs(parsed);
 	if (RuntimeConstants::showBackground)
@@ -324,7 +342,7 @@ int main(int argc, char* argv[]) {
 
 		if (screenResized) {
 			// pause so things only need to be rescaled once
-			displayMsgAndPause(finalDrawing, paused, score);
+			displayMsgAndPause(finalDrawing, *paused, score);
 			screenResized = false;
 			
 			// actually resize the screen
@@ -375,7 +393,7 @@ int main(int argc, char* argv[]) {
 				case 'p':
 				case 'P':
 				case '\e':
-					displayMsgAndPause(finalDrawing, paused, score);
+					displayMsgAndPause(finalDrawing, *paused, score);
 					break;
 			}
 		}
@@ -395,7 +413,7 @@ int main(int argc, char* argv[]) {
 
 		for (Pipe& pipe: pipes) {
 			if (pipe.xPos + RuntimeConstants::pipeWidth/2 + 1 < // +1 to account for the pipe rims
-					RuntimeConstants::birdXPos - birdDrawing.getWidth()/2 &&
+					RuntimeConstants::birdXPos - birdDrawing->getWidth()/2 &&
 					!pipe.isPassed) {
 				score++;
 				pipe.isPassed = true;
@@ -427,12 +445,12 @@ int main(int argc, char* argv[]) {
 
 		if (bird.yPos < 0)
 			isGameOver = true;
-		else if (bird.yPos + birdDrawing.getHeight() > LINES * 3)
+		else if (bird.yPos + birdDrawing->getHeight() > LINES * 3)
 			isGameOver = true;
 
 		if (!isGameOver) {
 			try {
-				foregroundDrawing.insert(SextantCoord(bird.yPos, RuntimeConstants::birdXPos), birdDrawing, OverrideStyle::Error);
+				foregroundDrawing.insert(SextantCoord(bird.yPos, RuntimeConstants::birdXPos), *birdDrawing, OverrideStyle::Error);
 			} catch(OverrideException&) {
 				isGameOver = true;
 			}
@@ -448,7 +466,7 @@ int main(int argc, char* argv[]) {
 
 		if (isGameOver) {
 				beep();
-				displayMsgAndPause(finalDrawing, gameOver, score);
+				displayMsgAndPause(finalDrawing, *gameOver, score);
 				bird.yPos = 10.0;
 				bird.yVel = 0.0;
 				pipes.clear();
