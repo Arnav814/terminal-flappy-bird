@@ -50,7 +50,7 @@ short MSG_BG = 25;
 void initColors() {
 	if (can_change_color()) {
 		#define RGB(r, g, b) r*1000/256, g*1000/256, b*1000/256 // init_color wants 0-1000
-		init_color(PIPE_FILL, RGB(44, 196, 39));
+		init_color(PIPE_FILL, RGB(34, 178, 58));
 		init_color(BIRD_COLOR, RGB(228, 225, 74));
 		init_color(HILL_COLOR, RGB(109, 205, 68));
 		init_color(SKY_COLOR, RGB(75, 178, 223));
@@ -126,8 +126,8 @@ struct Bird {double yPos; double yVel;};
 
 // both min and max are inclusive
 int randrange(int min, int max) {
-    //static default_random_engine engine {random_device{}()};
-    static default_random_engine engine {42}; // Makes debugging random segfaults less painful
+    static default_random_engine engine {random_device{}()};
+    //static default_random_engine engine {42}; // Makes debugging random segfaults less painful
     uniform_int_distribution<int> uniform_dist(min, max);
 
     return uniform_dist(engine);
