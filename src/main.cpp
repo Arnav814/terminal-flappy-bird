@@ -39,8 +39,25 @@ namespace RuntimeConstants {
 	double birdJumpVelocity;
 };
 
-#define PIPE_FILL PriorityColor(COLOR_GREEN, 100)
-#define BIRD_COLOR COLOR_YELLOW
+#define PIPE_FILL 20
+#define BIRD_COLOR 21
+#define HILL_COLOR 22
+#define SKY_COLOR 23
+#define MSG_COLOR 24
+#define MSG_BG 25
+
+void initColors() {
+	if (!can_change_color())
+		throw runtime_error("Your terminal does not support changing colors.");
+	#define RGB(r, g, b) r*1000/256, g*1000/256, b*1000/256 // init_color wants 0-1000
+	init_color(PIPE_FILL, RGB(44, 196, 39));
+	init_color(BIRD_COLOR, RGB(228, 225, 74));
+	init_color(HILL_COLOR, RGB(109, 205, 68));
+	init_color(SKY_COLOR, RGB(75, 178, 223));
+	init_color(MSG_COLOR, RGB(200, 0, 23));
+	init_color(MSG_BG, RGB(25, 25, 25));
+	#undef RGB
+}
 
 #define F PriorityColor(BIRD_COLOR, 101)
 #define O PriorityColor(COLOR_BLACK, 0)
@@ -52,8 +69,8 @@ const SextantDrawing birdDrawing(
 #undef F
 #undef O
 
-#define F PriorityColor(COLOR_RED, 250)
-#define O PriorityColor(COLOR_BLACK, 249)
+#define F PriorityColor(MSG_COLOR, 250)
+#define O PriorityColor(MSG_BG, 249)
 const SextantDrawing gameOver(
 	{{F,F,F,F,O,F,F,F,F,O,F,F,F,F,F,O,F,F,F,F,O,O,F,F,F,F,O,F,O,O,O,F,O,F,F,F,F,O,F,F,F,F},
 	 {F,O,O,O,O,F,O,O,F,O,F,O,F,O,F,O,F,O,O,O,O,O,F,O,O,F,O,F,O,O,O,F,O,F,O,O,O,O,F,O,O,F},
@@ -66,8 +83,8 @@ const SextantDrawing gameOver(
 #undef F
 #undef O
 
-#define F PriorityColor(COLOR_RED, 250)
-#define O PriorityColor(COLOR_BLACK, 249)
+#define F PriorityColor(MSG_COLOR, 250)
+#define O PriorityColor(MSG_BG, 249)
 const SextantDrawing paused(
 	{{F,F,F,F,O,F,F,F,F,O,F,O,O,F,O,F,F,F,F,O,F,F,F,F,O,F,F,F,O},
 	 {F,O,O,F,O,F,O,O,F,O,F,O,O,F,O,F,O,O,O,O,F,O,O,O,O,F,O,O,F},
@@ -110,13 +127,13 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 		assertGtEq(y, 0, "");
 		assertLtEq(y, LINES * 3, "");
 		for (int x = 1; x < topPipe.getWidth()-1; x++) {
-			topPipe.set(SextantCoord(y, x), PIPE_FILL);
+			topPipe.set(SextantCoord(y, x), PriorityColor(PIPE_FILL, 100));
 		}
 	}
 
 	// add the rims to the pipes
-	topPipe.set(SextantCoord(topPipe.getHeight()-1, 0), PIPE_FILL);
-	topPipe.set(SextantCoord(topPipe.getHeight()-1, topPipe.getWidth()-1), PIPE_FILL);
+	topPipe.set(SextantCoord(topPipe.getHeight()-1, 0), PriorityColor(PIPE_FILL, 100));
+	topPipe.set(SextantCoord(topPipe.getHeight()-1, topPipe.getWidth()-1), PriorityColor(PIPE_FILL, 100));
 
 	SextantDrawing bottomPipe(LINES*3 - (pipe.height + RuntimeConstants::pipeGapVert/2), RuntimeConstants::pipeWidth+2);
 
@@ -124,12 +141,12 @@ void drawPipe(SextantDrawing& drawing, const Pipe& pipe) {
 		assertGtEq(y, 0, "");
 		assertLtEq(y, LINES * 3, "");
 		for (int x = 1; x < bottomPipe.getWidth()-1; x++) {
-			bottomPipe.set(SextantCoord(y, x), PIPE_FILL);
+			bottomPipe.set(SextantCoord(y, x), PriorityColor(PIPE_FILL, 100));
 		}
 	}
 
-	bottomPipe.set(SextantCoord(0, 0), PIPE_FILL);
-	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PIPE_FILL);
+	bottomPipe.set(SextantCoord(0, 0), PriorityColor(PIPE_FILL, 100));
+	bottomPipe.set(SextantCoord(0, bottomPipe.getWidth()-1), PriorityColor(PIPE_FILL, 100));
 
 	drawing.insert(SextantCoord(0, pipe.xPos - floor(RuntimeConstants::pipeWidth/2)), topPipe);
 	//topPipe.render(round((pipe.xPos - floor(RuntimeConstants::pipeWidth/2) - 1) / 3), 0);
@@ -148,16 +165,15 @@ void drawBg(SextantDrawing& drawing) {
 
 	for (SextantCoord coord: drawing.getIterator()) {
 		if (LINES * 3 - cache[coord.x] < (uint) coord.y) {
-			drawing.set(coord, PriorityColor(COLOR_GREEN, 2));
+			drawing.set(coord, PriorityColor(HILL_COLOR, 2));
 		} else {
-			drawing.set(coord, PriorityColor(COLOR_BLUE, 1));
+			drawing.set(coord, PriorityColor(SKY_COLOR, 1));
 		}
 	}
 }
 
 [[noreturn]] void finish(int sig);
 [[noreturn]] void exitStatus(int status);
-
 
 // Get constants from CLI args.
 // Call before curses init
@@ -274,7 +290,12 @@ int main(int argc, char* argv[]) {
 
     if (has_colors()) {
         start_color();
-    }
+    } else {
+		cerr << "This program requires a terminal with color support. Check you $TERM environment variable." << endl;
+		exitStatus(4);
+	}
+
+	initColors();
 
 	setArgs(parsed);
 	if (RuntimeConstants::showBackground)
@@ -464,19 +485,19 @@ void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message, 
 
 	// draw an outline
 	for (SextantCoord coord: CoordIterator(SextantCoord(topLeft), SextantCoord(bottomRight) + SextantCoord(2, 1))) {
-		drawing.set(coord, PriorityColor(COLOR_RED, 250));
+		drawing.set(coord, PriorityColor(MSG_COLOR, 250));
 	}
 
 	// fill in black
 	for (SextantCoord coord: CoordIterator(SextantCoord(topLeft) + SextantCoord(1, 1),
 			SextantCoord(bottomRight) + SextantCoord(1, 0))) {
-		drawing.set(coord, PriorityColor(COLOR_BLACK, 249));
+		drawing.set(coord, PriorityColor(MSG_BG, 249));
 	}
 
 	drawing.insert(topLeft + CharCoord(PADDING, PADDING), message);
 	drawing.render(CharCoord(0, 0));
 
-	attrset(getColorPair(COLOR_RED, COLOR_BLACK));
+	attrset(getColorPair(MSG_COLOR, MSG_BG));
 	string scoreStr = "SCORE: " + to_string(score);
 	mvaddstr(bottomRight.y - PADDING - 1, topLeft.x + PADDING, scoreStr.c_str());
 	mvaddstr(bottomRight.y - PADDING, topLeft.x + PADDING, "CONTINUE?");
