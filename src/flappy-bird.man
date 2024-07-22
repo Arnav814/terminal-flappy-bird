@@ -1,0 +1,69 @@
+.TH FLAPPY-BIRD 1 "21 July 24"
+.SH NAME
+flappy-bird - flappy bird in a terminal
+.SH SYNOPSIS
+.B flappy-bird
+.SH DESCRIPTION
+.B flappy-bird
+allows you to play the video game flappy bird in a terminal.
+If your terminal supports 256color, that will be used, but it's not necessary.
+Use space to jump, and p, P, or ESC to pause. When paused (or at the game over screen) use c or C to continue, and q or Q to quit.
+Your score is the number of pipes you passed.
+
+Several options take a measurement in squares instead of characters.
+There are 6 squares in a character: 3 vertically, and 2 horizontally.
+They aren't exactly square (it depends on your font size), but they're close.
+For example, passing 2 into \fB\-\-pipe\-width\fR would result in a pipe width of 1 character,
+because this is specified in squares.
+.SS Options
+.TP
+\fB\-v\fR, \fB\-\-vert\-gap\fR=\fIGAP\fR
+Sets the distance between the top and bottom pipes, in squares. Defaults to the height of the bird * 8.
+.TP
+\fB\-h\fR, \fB\-\-horiz\-gap\fR=\fIGAP\fR
+Sets the distance between pipes, in squares. Defaults to (screen width / 8 + 10) / pipe speed.
+.TP
+\fB\-w\fR, \fB\-\-pipe\-width\fR=\fIWIDTH\fR
+Sets the width of pipes, in squares. Defaults to 6.
+.TP
+\fB\-s\fR, \fB\-\-pipe\-speed\fR=\fISPEED\fR
+Sets the speed of pipes, in squares. This IS frame rate dependent, so a pipe speed of 2 and frame
+rate of 10 is equivalent (ignoring lag) to a pipe speed of 1 at a frame rate of 20. Also note the effect
+of \fB\-\-pipe\-skip\-frames\fR. Defaults to 1.
+.TP
+\fB\-g\fR, \fB\-\-gravity\fR=\fISPEED\fR
+Sets the speed the bird falls at. Given in squares per frame. This can be a decimal, and is
+frame rate dependant. Defaults to 0.1.
+.TP
+\fB\-j\fR, \fB\-\-jump\-speed\fR=\fISPEED\fR
+Sets how high the bird jumps. Given in squares per frame. This can be a decimal, and is
+frame rate dependent. Defaults to gravity * 20.
+.TP
+\fB\-x\fR, \fB\-\-bird\-x\fR=\fIDISTANCE\fR
+Sets where the bird is positioned on the x-axis. This is given in squares. Defaults to 1/4 of the screen from the left.
+.TP
+\fB\-b\fR, \fB\-\-no\-background\fR
+Turns the background off.
+.TP
+\fB\-B\fR, \fB\-\-background\fR
+Turns the background on. This is the default. If both this and \fB\-\-no\-background\fR are specified,
+then this takes precedence.
+.TP
+\fB\-f\fR, \fB\-\-frame\-rate\fR=\fIFPS\fR
+Sets the frame rate. Given in frames per second. This affects several other options. Defaults to 10.
+.TP
+\fB\-p\fR, \fB\-\-pipe\-skip\-frames\fR=\fIFRAMES\fR
+If this is set, then pipes will only be rendered every \fIFRAMES\fR frames. For example, if this is
+set to 2, pipes will only be updated every other frame. This can help make things smoother if lag
+is becoming a problem. This will affect the pipe speed, so you'll probably want to turn that up when
+using this. Off by default.
+.TP
+\fB\-S\fR, \fB\-\-bg\-skip\-frames\fR=\fIFRAMES\fR
+If this is set, only render the background every \fIFRAMES\fR frames. This can help reduce lag. If
+things are still too laggy, you can try \fB\-\-no\-background\fR as a more extreme measure. Off by default.
+.TP
+\fB\-\-help\fR
+Print usage information.
+.SH BUGS
+Probably numerous.
+

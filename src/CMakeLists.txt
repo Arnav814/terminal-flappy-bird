@@ -10,14 +10,14 @@ set(CURSES_NEED_WIDE TRUE)
 find_package(Curses REQUIRED)
 include_directories(${CURSES_INCLUDE_DIRS})
 
-add_executable(fly main.cpp)
+add_executable(flappy-bird main.cpp)
 
-target_link_libraries(fly ${CURSES_LIBRARIES})
+target_link_libraries(flappy-bird ${CURSES_LIBRARIES})
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/run.sh
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-install(TARGETS fly
+install(TARGETS flappy-bird
 	DESTINATION bin)
 
 add_executable(testing test.cpp)
