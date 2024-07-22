@@ -12,7 +12,18 @@
 			"description": "Default config. Should NOT be used directly.",
 			"hidden": true,
 			"cacheVariables": {
-				"CMAKE_CXX_FLAGS": "$env{CXX_WARNINGS} $env{CXX_SANITIZE} $env{CXX_OPTIMIZATION} $env{CXX_DEBUG} $env{CXX_PROFILE}"
+				"CXX_WARNINGS": "-Wall -Wextra -Wundef -Wswitch-enum",
+				"CMAKE_CXX_FLAGS": "$env{CXX_WARNINGS} $env{CXX_ISERROR} $env{CXX_SANITIZE} $env{CXX_OPTIMIZATION} $env{CXX_DEBUG} $env{CXX_PROFILE}"
+			}
+		},
+		{
+			"name": "rel",
+			"displayName": "Release",
+			"description": "For release builds",
+			"inherits": "default",
+			"environment": {
+				"CXX_OPTIMIZATION": "-O2",
+				"CXX_ISERROR": "-Werror"
 			}
 		},
 		{
@@ -21,7 +32,6 @@
 			"description": "Anything for development should eventually inherit from this.",
 			"inherits": "default",
 			"environment": {
-				"CXX_WARNINGS": "-Wall -Wextra -Wundef -Wswitch-enum",
 				"CXX_SANITIZE": "-fsanitize=address -fsanitize=undefined -fsanitize=null -fsanitize=return -fsanitize=signed-integer-overflow -fsanitize=bounds",
 				"CXX_OPTIMIZATION": "-Og",
 				"CXX_DEBUG": "-g -rdynamic"
