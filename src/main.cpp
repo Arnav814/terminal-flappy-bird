@@ -195,7 +195,7 @@ void drawBg(SextantDrawing& drawing) {
 // Get constants from CLI args.
 // Call before curses init
 [[nodiscard]] cxxopts::ParseResult parseArgs(int argc, char* argv[]) {
-	cxxopts::Options options("fly", "A terminal Flappy Bird game.");
+	cxxopts::Options options("flappy-bird", "A terminal Flappy Bird game.");
 
 	// TODO: document units
 	options.add_options()
