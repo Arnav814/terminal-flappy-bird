@@ -264,10 +264,10 @@ void setArgs(cxxopts::ParseResult& parsed) {
 		showBackground = true;
 	// the default is true, and background takes precedence over no-background
 
-	setWithDefault(pipeGapVert, "vert-gap", birdDrawing->getHeight() * 8);
+	setWithDefault(pipeGapVert, "vert-gap", birdDrawing->getHeight() * 6);
 	setWithDefault(pipeWidth, "pipe-width", 6);
 	setWithDefault(pipeSpeed, "pipe-speed", 1);
-	setWithDefault(pipeGapHoriz, "horiz-gap", round(((double) COLS / 4 + 10) / pipeSpeed));
+	setWithDefault(pipeGapHoriz, "horiz-gap", round(((double) COLS / 2 + 10) / pipeSpeed));
 	setWithDefault(pipeProcessFrames, "pipe-skip-frames", 1);
 	setWithDefault(bgProcessFrames, "bg-skip-frames", 1);
 
