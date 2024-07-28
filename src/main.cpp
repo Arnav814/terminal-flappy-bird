@@ -383,7 +383,7 @@ int main(int argc, char* argv[]) {
 		assertEq(foregroundDrawing.getHeight(), LINES * 3, "Foreground drawing sized incorrectly for terminal.");
 		assertEq(foregroundDrawing.getWidth(), COLS * 2, "Foreground drawing sized incorrectly for terminal.");
 
-
+		#define ctrl(x) (x & 0x1f)
 		char nextCh;
 		while ((nextCh = getch()) != ERR) {
 			switch (nextCh) {
@@ -392,12 +392,18 @@ int main(int argc, char* argv[]) {
 					break;
 				case 'p':
 				case 'P':
+				case 'q':
+				case 'Q':
 				case '\e':
 					displayMsgAndPause(finalDrawing, *paused, score);
 					break;
+				case ctrl('l'):
+					clear();
+					break;
 			}
 		}
-
+		#undef ctrl
+		
 		erase();
 		finalDrawing.clear();
 		foregroundDrawing.clear();
@@ -531,7 +537,7 @@ void displayMsgAndPause(SextantDrawing& drawing, const SextantDrawing& message, 
 	char c;
 	while (true) {
 		c = getch();
-		if (c == 'c' || c == 'C') {
+		if (c == 'c' || c == 'C' || c == '\e') {
 			break;
 		} else if (c == 'q' || c == 'Q') {
 			exitStatus(0);
