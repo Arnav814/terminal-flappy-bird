@@ -319,7 +319,6 @@ int main(int argc, char* argv[]) {
 	if (RuntimeConstants::showBackground)
 		initSines();
 
-
 	vector<Pipe> pipes;
 	uint timeSinceLastPipe = RuntimeConstants::pipeGapHoriz + 1;
 	uint timeSincePipesProcessed = RuntimeConstants::pipeProcessFrames + 1;

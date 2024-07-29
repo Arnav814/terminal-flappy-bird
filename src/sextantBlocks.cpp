@@ -340,10 +340,10 @@ void SextantDrawing::render(const CharCoord& topLeft) const {
 			pair<colorType, colorType> colors = getTrimmedColors(asArray);
 			charArray<bool> trimmed;
 
-			string myString = "";
-			myString += to_string(colors.first);
-			myString += " ";
-			myString += to_string(colors.second);
+			//string myString = "";
+			//myString += to_string(colors.first);
+			//myString += " ";
+			//myString += to_string(colors.second);
 
 			//attrset(getColorPair(COLOR_GREEN, COLOR_BLACK));
 			//mvaddstr(10, 12, myString.c_str());
