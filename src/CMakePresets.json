@@ -12,8 +12,7 @@
 			"description": "Default config. Should NOT be used directly.",
 			"hidden": true,
 			"cacheVariables": {
-				"CXX_WARNINGS": "-Wall -Wextra -Wundef -Wswitch-enum",
-				"CMAKE_CXX_FLAGS": "$env{CXX_WARNINGS} $env{CXX_ISERROR} $env{CXX_SANITIZE} $env{CXX_OPTIMIZATION} $env{CXX_DEBUG} $env{CXX_PROFILE}"
+				"CMAKE_CXX_FLAGS": "-Wall -Wextra -Wundef -Wswitch-enum $env{CXX_ISERROR} $env{CXX_SANITIZE} $env{CXX_OPTIMIZATION} $env{CXX_DEBUG} $env{CXX_PROFILE}"
 			}
 		},
 		{
